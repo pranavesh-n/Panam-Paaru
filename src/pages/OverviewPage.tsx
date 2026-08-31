@@ -301,10 +301,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
 
                       <div className="flex items-baseline justify-between text-xs font-mono font-bold">
                         <span className={isOver ? 'text-[#FF4343] font-black' : 'text-[#121212]'}>
-                          {currencySymbol}{spent.toLocaleString()}
+                          {isPrivacyMode ? '••••' : `${currencySymbol}${spent.toLocaleString()}`}
                         </span>
                         <span className="text-neutral-500">
-                          / {currencySymbol}{total.toLocaleString()}
+                          {isPrivacyMode ? '••••' : `/ ${currencySymbol}${total.toLocaleString()}`}
                         </span>
                       </div>
 
@@ -381,7 +381,9 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                           isExp ? 'text-[#FF4343]' : 'text-[#05DF72]'
                         }`}
                       >
-                        {isExp ? '-' : '+'} {currencySymbol}{tx.amount.toLocaleString()}
+                        {isPrivacyMode
+                          ? '••••••'
+                          : `${isExp ? '-' : '+'} ${currencySymbol}${tx.amount.toLocaleString()}`}
                       </span>
                     </div>
                   );

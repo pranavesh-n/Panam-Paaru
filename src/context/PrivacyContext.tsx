@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface PrivacyContextType {
   isPrivacyMode: boolean;
@@ -10,24 +10,8 @@ interface PrivacyContextType {
 const PrivacyContext = createContext<PrivacyContextType | undefined>(undefined);
 
 export const PrivacyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // By default, privacy mode starts ENABLED (values hidden) until the user clicks the eye icon
-  const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('panam_privacy_mode');
-      if (saved !== null) {
-        return saved === 'true';
-      }
-      return true; // Default to hidden/private on initial visit
-    } catch {
-      return true;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('panam_privacy_mode', String(isPrivacyMode));
-    } catch {}
-  }, [isPrivacyMode]);
+  // Always start masked (true) by default whenever the app is opened or refreshed
+  const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(true);
 
   const togglePrivacyMode = () => {
     if (navigator.vibrate) navigator.vibrate(15);
