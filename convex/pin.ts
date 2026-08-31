@@ -23,7 +23,6 @@ function generateSalt(): string {
 
 /**
  * Returns whether PIN lock is enabled and current auto-lock settings.
- * Does NOT expose salt or hash.
  */
 export const getPinStatus = query({
   args: {},
@@ -40,7 +39,7 @@ export const getPinStatus = query({
       pinEnabled: security?.pinEnabled ?? false,
       autoLockTimeoutMs: security?.autoLockTimeoutMs ?? 300000,
       failedAttempts: security?.failedAttempts ?? 0,
-      isLockedOut: (security?.failedAttempts ?? 0) >= 5,
+      isLockedOut: false, // No artificial 60-second lockout
     };
   },
 });
@@ -114,24 +113,6 @@ export const verifyPin = mutation({
       return { success: true, message: "PIN lock not enabled" };
     }
 
-    // Check lockout
-    if (security.failedAttempts >= 5) {
-      const lockCooldown = 60000; // 1 min cooldown after 5 failed attempts
-      if (
-        security.lastFailedAttemptAt &&
-        Date.now() - security.lastFailedAttemptAt < lockCooldown
-      ) {
-        const remainingSec = Math.ceil(
-          (lockCooldown - (Date.now() - security.lastFailedAttemptAt)) / 1000
-        );
-        return {
-          success: false,
-          locked: true,
-          message: `Too many failed attempts. Try again in ${remainingSec} seconds.`,
-        };
-      }
-    }
-
     const testHash = await hashPin(args.pin, security.pinSalt);
     if (testHash === security.pinHash) {
       // Reset failed attempts on success
@@ -149,8 +130,8 @@ export const verifyPin = mutation({
       });
       return {
         success: false,
-        remainingAttempts: Math.max(0, 5 - newFailed),
-        message: `Incorrect PIN. ${Math.max(0, 5 - newFailed)} attempts left.`,
+        failedAttempts: newFailed,
+        message: `Incorrect PIN (Attempt ${newFailed})`,
       };
     }
   },

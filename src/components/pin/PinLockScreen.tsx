@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Lock, Delete, ShieldAlert, KeyRound, LogOut } from 'lucide-react';
+import { Lock, Delete, ShieldAlert, LogOut, HelpCircle, RefreshCw } from 'lucide-react';
 import { usePinLock } from '../../context/PinLockContext';
 import { BrandLogo } from '../layout/BrandLogo';
 import { NeoButton } from '../ui/NeoButton';
 import { useAuthActions } from '@convex-dev/auth/react';
 
 export const PinLockScreen: React.FC = () => {
-  const { isLocked, unlockWithPin, isLockout } = usePinLock();
+  const { isLocked, unlockWithPin } = usePinLock();
   const { signOut } = useAuthActions();
   
   const [pin, setPin] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [failedCount, setFailedCount] = useState<number>(0);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [isShaking, setIsShaking] = useState<boolean>(false);
 
@@ -62,21 +63,24 @@ export const PinLockScreen: React.FC = () => {
         setIsVerifying(false);
 
         if (!result.success) {
-          setErrorMsg(result.message || 'Incorrect 6-digit PIN');
+          const newCount = failedCount + 1;
+          setFailedCount(newCount);
+          setErrorMsg(result.message || `Incorrect PIN (Attempt ${newCount})`);
           setIsShaking(true);
           setTimeout(() => {
             setIsShaking(false);
             setPin('');
-          }, 500);
+          }, 400);
         } else {
           setPin('');
           setErrorMsg('');
+          setFailedCount(0);
         }
       };
 
       verify();
     }
-  }, [pin, isVerifying, unlockWithPin]);
+  }, [pin, isVerifying, unlockWithPin, failedCount]);
 
   if (!isLocked) return null;
 
@@ -101,18 +105,18 @@ export const PinLockScreen: React.FC = () => {
           </span>
         </div>
 
-        <p className="text-xs font-bold text-neutral-600 mb-6 text-center">
-          Enter your 6-digit PIN to access your cloud finances
+        <p className="text-xs font-bold text-neutral-600 mb-5 text-center">
+          Enter your 6-digit PIN to access your finances
         </p>
 
         {/* 6-Digit Indicator Bubbles */}
-        <div className={`flex gap-3 mb-6 ${isShaking ? 'animate-shake' : ''}`}>
+        <div className={`flex gap-3 mb-5 ${isShaking ? 'animate-shake' : ''}`}>
           {[0, 1, 2, 3, 4, 5].map((index) => {
             const isFilled = pin.length > index;
             return (
               <div
                 key={index}
-                className={`w-9 h-11 border-[3px] border-[#121212] flex items-center justify-center transition-all duration-150 ${
+                className={`w-9 h-11 border-[3px] border-[#121212] flex items-center justify-center transition-all duration-100 ${
                   isFilled
                     ? 'bg-[#05DF72] shadow-neo-sm scale-105'
                     : 'bg-[#FFFDF5] shadow-none'
@@ -127,25 +131,46 @@ export const PinLockScreen: React.FC = () => {
         </div>
 
         {/* Error Feedback */}
-        {errorMsg ? (
+        {errorMsg && (
           <div className="w-full bg-[#FF4343] text-white text-xs font-black p-2 border-2 border-[#121212] shadow-neo-sm flex items-center gap-2 mb-4 animate-in fade-in">
             <ShieldAlert size={16} strokeWidth={3} className="shrink-0" />
             <span>{errorMsg}</span>
           </div>
-        ) : isLockout ? (
-          <div className="w-full bg-[#FFE600] text-[#121212] text-xs font-black p-2 border-2 border-[#121212] shadow-neo-sm flex items-center gap-2 mb-4">
-            <ShieldAlert size={16} strokeWidth={3} className="shrink-0" />
-            <span>Temporarily locked out due to failed attempts</span>
+        )}
+
+        {/* Prominent Forgot PIN / Reset Button after 3 wrong attempts */}
+        {failedCount >= 3 && (
+          <div className="w-full mb-4 p-3 bg-[#FFFDF5] border-2 border-[#FF4343] shadow-neo-sm flex flex-col gap-2 animate-in fade-in">
+            <div className="flex items-center gap-1.5 text-xs font-black text-[#FF4343] uppercase">
+              <HelpCircle size={15} />
+              <span>Forgot your PIN?</span>
+            </div>
+            <p className="text-[11px] font-bold text-neutral-700">
+              Entered wrong PIN {failedCount} times. Sign out to reset your session.
+            </p>
+            <NeoButton
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                sessionStorage.removeItem('panam_pin_configured');
+                sessionStorage.removeItem('panam_welcome_celebrated');
+                void signOut();
+              }}
+              className="flex items-center justify-center gap-1.5 w-full text-xs font-black"
+            >
+              <LogOut size={14} />
+              <span>Sign Out to Reset PIN</span>
+            </NeoButton>
           </div>
-        ) : null}
+        )}
 
         {/* Neo-Brutalist 3x4 Keypad */}
-        <div className="grid grid-cols-3 gap-2.5 w-full mb-6">
+        <div className="grid grid-cols-3 gap-2.5 w-full mb-5">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
             <button
               key={num}
               onClick={() => handleDigit(num)}
-              disabled={isVerifying || isLockout}
+              disabled={isVerifying}
               className="neo-btn bg-white hover:bg-[#FFE600] text-[#121212] font-mono text-xl font-black py-3 border-2 border-[#121212] shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer"
             >
               {num}
@@ -164,7 +189,7 @@ export const PinLockScreen: React.FC = () => {
           {/* 0 Button */}
           <button
             onClick={() => handleDigit('0')}
-            disabled={isVerifying || isLockout}
+            disabled={isVerifying}
             className="neo-btn bg-white hover:bg-[#FFE600] text-[#121212] font-mono text-xl font-black py-3 border-2 border-[#121212] shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer"
           >
             0
@@ -183,7 +208,11 @@ export const PinLockScreen: React.FC = () => {
         {/* Emergency Sign Out Button */}
         <div className="w-full pt-2 border-t-2 border-neutral-200 flex justify-center">
           <button
-            onClick={() => signOut()}
+            onClick={() => {
+              sessionStorage.removeItem('panam_pin_configured');
+              sessionStorage.removeItem('panam_welcome_celebrated');
+              void signOut();
+            }}
             className="text-xs font-bold text-neutral-500 hover:text-[#FF4343] flex items-center gap-1.5 cursor-pointer underline transition-colors"
           >
             <LogOut size={13} />
