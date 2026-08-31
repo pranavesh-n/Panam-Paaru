@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Solid Neo-Brutalist Sunny Background -->
+  <rect width="512" height="512" fill="#FFE600" rx="40"/>
+  <!-- Chunky 16px Solid Black Border -->
+  <rect x="12" y="12" width="488" height="488" fill="none" stroke="#121212" stroke-width="24" rx="28"/>
+  
+  <!-- Hard Shadow Box Element -->
+  <rect x="76" y="76" width="370" height="370" fill="#121212" rx="24"/>
+  <rect x="64" y="64" width="370" height="370" fill="#FFFDF5" stroke="#121212" stroke-width="20" rx="24"/>
+  
+  <!-- First 'P' (PANAM) in Deep Obsidian Black -->
+  <path d="M120 120 H235 C285 120 310 145 310 195 C310 245 285 270 235 270 H180 V390 H120 Z" fill="#121212"/>
+  <path d="M180 175 H225 C245 175 255 182 255 195 C255 208 245 215 225 215 H180 Z" fill="#FFE600"/>
+  
+  <!-- Second 'P' (PAARU) in Electric Neon Green -->
+  <path d="M230 175 H345 C395 175 420 200 420 250 C420 300 395 325 345 325 H290 V410 H230 Z" fill="#05DF72" stroke="#121212" stroke-width="14"/>
+  <path d="M290 230 H335 C355 230 365 237 365 250 C365 263 355 270 335 270 H290 Z" fill="#FFFDF5" stroke="#121212" stroke-width="8"/>
+  
+  <!-- Indian Rupee / Currency Strike Stems -->
+  <rect x="90" y="210" width="170" height="18" fill="#FFE600" stroke="#121212" stroke-width="4"/>
+  <rect x="200" y="265" width="180" height="18" fill="#121212"/>
+  
+  <!-- Mini Neo-Brutalist Star / Sparkle in Top Corner -->
+  <polygon points="410,90 420,115 445,125 420,135 410,160 400,135 375,125 400,115" fill="#121212"/>
+</svg>

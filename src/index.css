@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --neo-border: #121212;
+    --neo-bg: #FFFDF5;
+    --neo-yellow: #FFE600;
+    --neo-green: #05DF72;
+    --neo-emerald: #2EE59D;
+    --neo-red: #FF4343;
+    --neo-purple: #9B51E0;
+    --neo-blue: #0066FF;
+    --neo-cyan: #00F0FF;
+    --neo-pink: #FF4D8D;
+  }
+
+  body {
+    background-color: #FFFDF5;
+    color: #121212;
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  /* Custom high-contrast scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FFFDF5;
+    border-left: 2px solid #121212;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #FFE600;
+    border: 2px solid #121212;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #121212;
+  }
+}
+
+/* Neo-Brutalist Global Utilities */
+.shadow-neo {
+  box-shadow: 4px 4px 0px 0px #121212;
+}
+
+.shadow-neo-sm {
+  box-shadow: 2px 2px 0px 0px #121212;
+}
+
+.shadow-neo-lg {
+  box-shadow: 6px 6px 0px 0px #121212;
+}
+
+.shadow-neo-xl {
+  box-shadow: 8px 8px 0px 0px #121212;
+}
+
+.neo-box {
+  background-color: #FFFFFF;
+  border: 3px solid #121212;
+  box-shadow: 4px 4px 0px 0px #121212;
+}
+
+.neo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 3px solid #121212;
+  box-shadow: 4px 4px 0px 0px #121212;
+  transition: all 0.1s ease-in-out;
+  user-select: none;
+}
+
+.neo-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0px 0px #121212;
+}
+
+.neo-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #121212;
+}
+
+.neo-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 2px 2px 0px 0px #121212 !important;
+}
+
+.neo-input {
+  width: 100%;
+  background-color: #FFFFFF;
+  border: 3px solid #121212;
+  box-shadow: 3px 3px 0px 0px #121212;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.1s ease;
+}
+
+.neo-input:focus {
+  outline: none;
+  box-shadow: 4px 4px 0px 0px #FFE600;
+  background-color: #FFFFF8;
+}
+
+.neo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.6rem;
+  border: 2px solid #121212;
+  box-shadow: 2px 2px 0px 0px #121212;
+}
+
+.neo-pattern-dots {
+  background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+
+.neo-pattern-stripes {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(18, 18, 18, 0.05) 10px,
+    rgba(18, 18, 18, 0.05) 20px
+  );
+}
+
+/* Tactile PIN Lock Keypad Animations */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
