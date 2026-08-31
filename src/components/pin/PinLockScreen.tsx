@@ -81,7 +81,7 @@ export const PinLockScreen: React.FC = () => {
   if (!isLocked) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#FFFDF5] flex flex-col items-center justify-center p-4 select-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] bg-[#FFFDF5] flex flex-col items-center justify-center p-4 select-none">
       {/* Background Neo-Brutalist Pattern */}
       <div className="absolute inset-0 neo-pattern-stripes opacity-40 pointer-events-none" />
 

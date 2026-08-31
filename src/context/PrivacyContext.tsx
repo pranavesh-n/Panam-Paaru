@@ -10,11 +10,16 @@ interface PrivacyContextType {
 const PrivacyContext = createContext<PrivacyContextType | undefined>(undefined);
 
 export const PrivacyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // By default, privacy mode starts ENABLED (values hidden) until the user clicks the eye icon
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('panam_privacy_mode') === 'true';
+      const saved = localStorage.getItem('panam_privacy_mode');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+      return true; // Default to hidden/private on initial visit
     } catch {
-      return false;
+      return true;
     }
   });
 

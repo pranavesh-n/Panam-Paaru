@@ -30,20 +30,17 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Action Controls */}
       <div className="flex items-center gap-2 sm:gap-3">
         
-        {/* Global Privacy Eye Toggle Button */}
+        {/* Global Privacy Eye Toggle Button (Icon-Only) */}
         <button
           onClick={togglePrivacyMode}
-          title={isPrivacyMode ? 'Show Balances' : 'Hide Balances for Privacy'}
-          className={`p-2 border-2 border-[#121212] transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black uppercase ${
+          title={isPrivacyMode ? 'Show Balances' : 'Hide Balances'}
+          className={`p-2 border-2 border-[#121212] transition-all cursor-pointer flex items-center justify-center ${
             isPrivacyMode
               ? 'bg-[#121212] text-[#FFE600] shadow-none'
               : 'bg-[#FFE600] text-[#121212] shadow-neo-sm hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neo'
           }`}
         >
           {isPrivacyMode ? <EyeOff size={16} strokeWidth={2.5} /> : <Eye size={16} strokeWidth={2.5} />}
-          <span className="hidden md:inline font-mono text-[11px]">
-            {isPrivacyMode ? 'HIDDEN' : 'MASK'}
-          </span>
         </button>
 
         {/* Add Transaction Button */}
