@@ -78,19 +78,28 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     try {
       setIsSubmitting(true);
       setError('');
-      await onSubmit({
-        title: title.trim(),
-        amount: numAmount,
-        type,
-        category,
-        date,
-        notes: notes.trim() || undefined,
-      });
+      
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out. Please check your connection.')), 8000)
+      );
+
+      await Promise.race([
+        onSubmit({
+          title: title.trim(),
+          amount: numAmount,
+          type,
+          category,
+          date,
+          notes: notes.trim() || undefined,
+        }),
+        timeoutPromise,
+      ]);
+
       setIsSubmitting(false);
       onClose();
     } catch (err: any) {
       setIsSubmitting(false);
-      setError(err.message || 'Failed to save transaction');
+      setError(err?.message || 'Failed to save transaction. Please try again.');
     }
   };
 

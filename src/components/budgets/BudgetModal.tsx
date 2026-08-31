@@ -80,19 +80,28 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     try {
       setIsSubmitting(true);
       setError('');
-      await onSubmit({
-        name: name.trim(),
-        amount: numAmount,
-        category,
-        recurrence,
-        startDate,
-        alertThreshold: !isNaN(numThreshold) ? numThreshold : 80,
-      });
+      
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out. Please check your connection.')), 8000)
+      );
+
+      await Promise.race([
+        onSubmit({
+          name: name.trim(),
+          amount: numAmount,
+          category,
+          recurrence,
+          startDate,
+          alertThreshold: !isNaN(numThreshold) ? numThreshold : 80,
+        }),
+        timeoutPromise,
+      ]);
+
       setIsSubmitting(false);
       onClose();
     } catch (err: any) {
       setIsSubmitting(false);
-      setError(err.message || 'Failed to save recurring budget');
+      setError(err?.message || 'Failed to save recurring budget. Please try again.');
     }
   };
 
