@@ -34,6 +34,26 @@ export const currentUser = query({
     const user = await ctx.db.get(userId);
     if (!user) return null;
 
+    let name = user.name;
+    let email = user.email;
+    const image = user.image;
+
+    // If email is not directly on user, check authAccounts
+    if (!email) {
+      const authAccount = await ctx.db
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
+        .first();
+
+      if (authAccount) {
+        if (authAccount.providerAccountId && authAccount.providerAccountId.includes("@")) {
+          email = authAccount.providerAccountId;
+        } else if (authAccount.emailVerified) {
+          email = authAccount.emailVerified;
+        }
+      }
+    }
+
     const settings = await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -46,6 +66,9 @@ export const currentUser = query({
 
     return {
       ...user,
+      name: name || user.name || "Authenticated User",
+      email: email || user.email || "",
+      image: image || user.image || "",
       settings: settings || {
         currency: "INR",
         currencySymbol: "₹",

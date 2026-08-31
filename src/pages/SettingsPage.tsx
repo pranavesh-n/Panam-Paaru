@@ -223,10 +223,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             )}
             <div>
               <span className="font-black text-sm text-[#121212] block">
-                {user?.name || 'Authenticated User'}
+                {user?.name || 'Google Account User'}
               </span>
               <span className="text-xs font-mono font-bold text-neutral-600">
-                {user?.email || 'user@example.com'}
+                {user?.email || 'Signed in with Google'}
               </span>
             </div>
           </div>
