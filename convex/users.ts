@@ -34,21 +34,24 @@ export const currentUser = query({
     const user = await ctx.db.get(userId);
     if (!user) return null;
 
-    let name = user.name;
-    let email = user.email;
-    const image = user.image;
+    // Get identity from verified session token
+    const identity = await ctx.auth.getUserIdentity();
 
-    // If email is not directly on user, check authAccounts
-    if (!email) {
+    let name = user.name || identity?.name || "";
+    let email = user.email || identity?.email || "";
+    let image = user.image || identity?.pictureUrl || "";
+
+    // If still missing, check authAccounts
+    if (!name || !email || !image) {
       const authAccount = await ctx.db
         .query("authAccounts")
         .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
         .first();
 
       if (authAccount) {
-        if (authAccount.providerAccountId && authAccount.providerAccountId.includes("@")) {
+        if (!email && authAccount.providerAccountId && authAccount.providerAccountId.includes("@")) {
           email = authAccount.providerAccountId;
-        } else if (authAccount.emailVerified) {
+        } else if (!email && authAccount.emailVerified) {
           email = authAccount.emailVerified;
         }
       }
@@ -66,9 +69,9 @@ export const currentUser = query({
 
     return {
       ...user,
-      name: name || user.name || "Authenticated User",
-      email: email || user.email || "",
-      image: image || user.image || "",
+      name: name,
+      email: email,
+      image: image,
       settings: settings || {
         currency: "INR",
         currencySymbol: "₹",
@@ -89,6 +92,20 @@ export const initializeUserData = mutation({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
+
+    const user = await ctx.db.get(userId);
+    const identity = await ctx.auth.getUserIdentity();
+
+    // Sync Google profile data to user document if missing
+    if (user && identity) {
+      const updates: any = {};
+      if (identity.name && !user.name) updates.name = identity.name;
+      if (identity.email && !user.email) updates.email = identity.email;
+      if (identity.pictureUrl && !user.image) updates.image = identity.pictureUrl;
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(userId, updates);
+      }
+    }
 
     // Initialize user settings if not present
     const existingSettings = await ctx.db
