@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { FinancialStats, Transaction, Budget, Category } from '../types';
 import { NeoButton } from '../components/ui/NeoButton';
+import { usePrivacy } from '../context/PrivacyContext';
 import {
   TrendingUp,
   TrendingDown,
@@ -13,6 +14,8 @@ import {
   AlertTriangle,
   Sparkles,
   Command,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -39,6 +42,8 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   currencySymbol = '₹',
   userName,
 }) => {
+  const { isPrivacyMode, togglePrivacyMode, formatPrivateAmount } = usePrivacy();
+
   const totalBalance = stats?.totalBalance ?? 0;
   const monthIncome = stats?.thisMonthIncome ?? 0;
   const monthExpense = stats?.thisMonthExpense ?? 0;
@@ -153,18 +158,27 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
       {/* Top 4 Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Net Balance */}
+        {/* Net Balance with inline Eye Toggle */}
         <div className="bg-white border-[3px] border-[#121212] shadow-neo p-4 flex flex-col justify-between gap-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">
               NET BALANCE
             </span>
-            <div className="w-7 h-7 bg-[#05DF72] border border-[#121212] flex items-center justify-center">
-              <Wallet size={14} className="text-[#121212]" />
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={togglePrivacyMode}
+                title={isPrivacyMode ? 'Show Balances' : 'Hide Balances'}
+                className="p-1 hover:bg-neutral-100 border border-transparent hover:border-[#121212] transition-colors cursor-pointer"
+              >
+                {isPrivacyMode ? <EyeOff size={14} className="text-neutral-500" /> : <Eye size={14} className="text-neutral-500" />}
+              </button>
+              <div className="w-7 h-7 bg-[#05DF72] border border-[#121212] flex items-center justify-center">
+                <Wallet size={14} className="text-[#121212]" />
+              </div>
             </div>
           </div>
           <div className="text-2xl font-mono font-black text-[#05DF72]">
-            {currencySymbol}{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {formatPrivateAmount(totalBalance, currencySymbol)}
           </div>
           <span className="text-[10px] font-mono font-bold text-neutral-600">
             All-time cumulative total
@@ -182,7 +196,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             </div>
           </div>
           <div className="text-2xl font-mono font-black text-[#05DF72]">
-            +{currencySymbol}{monthIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {isPrivacyMode ? '••••••' : `+${formatPrivateAmount(monthIncome, currencySymbol)}`}
           </div>
           <span className="text-[10px] font-mono font-bold text-neutral-600">
             Earned this month
@@ -200,7 +214,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             </div>
           </div>
           <div className="text-2xl font-mono font-black text-[#FF4343]">
-            -{currencySymbol}{monthExpense.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {isPrivacyMode ? '••••••' : `-${formatPrivateAmount(monthExpense, currencySymbol)}`}
           </div>
           <span className="text-[10px] font-mono font-bold text-neutral-600">
             Spent this month
@@ -218,7 +232,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             </div>
           </div>
           <div className="text-2xl font-mono font-black text-[#121212]">
-            {savingsRate}%
+            {isPrivacyMode ? '••••' : `${savingsRate}%`}
           </div>
           <span className="text-[10px] font-mono font-bold text-neutral-600">
             {savingsRate >= 50

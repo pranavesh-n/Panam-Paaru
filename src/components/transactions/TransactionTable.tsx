@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Transaction, Category, TransactionType } from '../../types';
 import { NeoButton } from '../ui/NeoButton';
 import { NeoBadge } from '../ui/NeoBadge';
+import { usePrivacy } from '../../context/PrivacyContext';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -31,6 +32,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   onOpenStatement,
   currencySymbol = '₹',
 }) => {
+  const { isPrivacyMode } = usePrivacy();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -254,7 +256,9 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                           isExpense ? 'text-[#FF4343]' : 'text-[#05DF72]'
                         }`}
                       >
-                        {isExpense ? '-' : '+'} {currencySymbol}{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {isPrivacyMode
+                          ? '••••••'
+                          : `${isExpense ? '-' : '+'} ${currencySymbol}${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </td>
 
                       {/* Actions */}

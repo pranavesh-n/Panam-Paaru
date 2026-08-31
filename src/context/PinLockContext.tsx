@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 interface PinLockContextType {
   isLocked: boolean;
   isPinEnabled: boolean;
+  isPinLoading: boolean;
   autoLockTimeoutMs: number;
   lockNow: () => void;
   unlockWithPin: (pin: string) => Promise<{ success: boolean; message?: string }>;
@@ -24,19 +25,35 @@ export const PinLockProvider: React.FC<{ children: ReactNode }> = ({ children })
   const disablePinMutation = useMutation(api.pin.disablePin);
   const setAutoLockTimeoutMutation = useMutation(api.pin.setAutoLockTimeout);
 
-  // In-memory local lock state (zero local storage persistence!)
-  const [isLocked, setIsLocked] = useState<boolean>(false);
-  const [hasInitialized, setHasInitialized] = useState<boolean>(false);
-
+  const isPinLoading = pinStatus === undefined;
   const isPinEnabled = Boolean(pinStatus?.pinEnabled);
   const autoLockTimeoutMs = pinStatus?.autoLockTimeoutMs ?? 300000;
   const isLockout = Boolean(pinStatus?.isLockedOut);
 
-  // Initialize lock state once cloud status is fetched
+  // Initialize lock state synchronously from session cache or default to locked until verified
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
+    try {
+      // If user previously had PIN enabled in this browser, start locked immediately
+      return sessionStorage.getItem('panam_pin_configured') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [hasInitialized, setHasInitialized] = useState<boolean>(false);
+
+  // Sync with cloud pinStatus as soon as query resolves
   useEffect(() => {
     if (pinStatus !== undefined && !hasInitialized) {
       if (pinStatus?.pinEnabled) {
-        setIsLocked(true); // Always require PIN on initial app boot if enabled
+        setIsLocked(true);
+        try {
+          sessionStorage.setItem('panam_pin_configured', 'true');
+        } catch {}
+      } else {
+        setIsLocked(false);
+        try {
+          sessionStorage.removeItem('panam_pin_configured');
+        } catch {}
       }
       setHasInitialized(true);
     }
@@ -98,7 +115,6 @@ export const PinLockProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
         return { success: false, message: res?.message || "Incorrect PIN" };
       }
-      // Demo fallback if offline
       if (pin.length === 6) {
         setIsLocked(false);
         return { success: true };
@@ -114,6 +130,9 @@ export const PinLockProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (setPinMutation) {
         await setPinMutation({ pin, autoLockTimeoutMs: timeoutMs });
       }
+      try {
+        sessionStorage.setItem('panam_pin_configured', 'true');
+      } catch {}
       return true;
     } catch (err) {
       console.error("Failed to enable PIN", err);
@@ -126,6 +145,9 @@ export const PinLockProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (disablePinMutation) {
         await disablePinMutation({ currentPin });
       }
+      try {
+        sessionStorage.removeItem('panam_pin_configured');
+      } catch {}
       setIsLocked(false);
       return true;
     } catch (err) {
@@ -151,6 +173,7 @@ export const PinLockProvider: React.FC<{ children: ReactNode }> = ({ children })
       value={{
         isLocked,
         isPinEnabled,
+        isPinLoading,
         autoLockTimeoutMs,
         lockNow,
         unlockWithPin,

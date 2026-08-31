@@ -1,8 +1,9 @@
 import React from 'react';
-import { Plus, LogOut, User } from 'lucide-react';
+import { Plus, LogOut, User, Eye, EyeOff } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { NeoButton } from '../ui/NeoButton';
 import { useAuthActions } from '@convex-dev/auth/react';
+import { usePrivacy } from '../../context/PrivacyContext';
 import { UserProfile } from '../../types';
 
 interface HeaderProps {
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTransactionModal,
 }) => {
   const { signOut } = useAuthActions();
+  const { isPrivacyMode, togglePrivacyMode } = usePrivacy();
 
   return (
     <header className="w-full bg-white border-b-[3px] border-[#121212] px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-neo-sm">
@@ -26,8 +28,24 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Action Controls */}
-      <div className="flex items-center gap-2.5 sm:gap-3.5">
+      <div className="flex items-center gap-2 sm:gap-3">
         
+        {/* Global Privacy Eye Toggle Button */}
+        <button
+          onClick={togglePrivacyMode}
+          title={isPrivacyMode ? 'Show Balances' : 'Hide Balances for Privacy'}
+          className={`p-2 border-2 border-[#121212] transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black uppercase ${
+            isPrivacyMode
+              ? 'bg-[#121212] text-[#FFE600] shadow-none'
+              : 'bg-[#FFE600] text-[#121212] shadow-neo-sm hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neo'
+          }`}
+        >
+          {isPrivacyMode ? <EyeOff size={16} strokeWidth={2.5} /> : <Eye size={16} strokeWidth={2.5} />}
+          <span className="hidden md:inline font-mono text-[11px]">
+            {isPrivacyMode ? 'HIDDEN' : 'MASK'}
+          </span>
+        </button>
+
         {/* Add Transaction Button */}
         <NeoButton
           variant="secondary"

@@ -13,6 +13,10 @@ import {
   RecurrenceType,
 } from './types';
 
+// Contexts
+import { PinLockProvider, usePinLock } from './context/PinLockContext';
+import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
+
 // Layout & Components
 import { Header } from './components/layout/Header';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
@@ -22,7 +26,6 @@ import { PinLockScreen } from './components/pin/PinLockScreen';
 import { PinSetupModal } from './components/pin/PinSetupModal';
 import { TransactionFormModal } from './components/transactions/TransactionFormModal';
 import { BudgetModal } from './components/budgets/BudgetModal';
-import { usePinLock } from './context/PinLockContext';
 
 // Pages
 import { OverviewPage } from './pages/OverviewPage';
@@ -143,7 +146,7 @@ export function AppContent() {
     totalIncomeThisMonth: 0,
   };
 
-  // Transaction Handlers
+  // Transaction Handlers with Zero-Latency Optimistic Response
   const handleSaveTransaction = async (data: {
     title: string;
     amount: number;
@@ -152,7 +155,6 @@ export function AppContent() {
     date: string;
     notes?: string;
   }) => {
-    // Haptic vibration feedback on mobile
     if (navigator.vibrate) navigator.vibrate(20);
 
     if (editingTransaction) {
@@ -204,18 +206,20 @@ export function AppContent() {
     });
   };
 
-  // Unauthenticated screen
+  // 1. Unauthenticated screen
   if (!isAuthenticated) {
     return <AuthScreen />;
+  }
+
+  // 2. Strict PIN Lock Guard (Prevents ANY home page or financial data flash)
+  if (isLocked) {
+    return <PinLockScreen />;
   }
 
   return (
     <div className="min-h-screen bg-[#FFFDF5] text-[#121212] flex flex-col font-sans selection:bg-[#FFE600] selection:text-[#121212]">
       
-      {/* 6-Digit PIN Lock Overlay */}
-      <PinLockScreen />
-
-      {/* Top Header */}
+      {/* Top Header with Eye Privacy Toggle */}
       <Header
         user={user}
         onOpenTransactionModal={() => {
@@ -359,5 +363,11 @@ export function AppContent() {
 }
 
 export default function App() {
-  return <AppContent />;
+  return (
+    <PrivacyProvider>
+      <PinLockProvider>
+        <AppContent />
+      </PinLockProvider>
+    </PrivacyProvider>
+  );
 }

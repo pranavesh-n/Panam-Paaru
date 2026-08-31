@@ -1,7 +1,8 @@
 import React from 'react';
-import { LayoutDashboard, ArrowLeftRight, CalendarSync, PieChart, Settings, ShieldCheck, Zap } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, CalendarSync, PieChart, Settings, Eye, EyeOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import { FinancialStats } from '../../types';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 export type NavTab = 'overview' | 'transactions' | 'budgets' | 'insights' | 'settings';
 
@@ -18,6 +19,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   stats,
   currencySymbol = '₹',
 }) => {
+  const { isPrivacyMode, togglePrivacyMode, formatPrivateAmount } = usePrivacy();
+
   const navItems: { id: NavTab; label: string; icon: React.FC<{ size?: number; className?: string }>; color: string }[] = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, color: '#FFE600' },
     { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight, color: '#00F0FF' },
@@ -60,23 +63,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* Live Net Balance Widget */}
+      {/* Live Net Balance Widget with Eye Toggle */}
       <div className="flex flex-col gap-3 pt-4 border-t-2 border-neutral-200">
         <div className="p-3 bg-[#05DF72] border-2 border-[#121212] shadow-neo-sm flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-[#121212]">
               NET BALANCE
             </span>
-            <span className="text-[9px] font-mono font-bold bg-[#121212] text-[#05DF72] px-1">
-              LIVE
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={togglePrivacyMode}
+                title={isPrivacyMode ? 'Show Balances' : 'Hide Balances'}
+                className="p-0.5 hover:bg-black/10 transition-colors cursor-pointer"
+              >
+                {isPrivacyMode ? <EyeOff size={12} className="text-[#121212]" /> : <Eye size={12} className="text-[#121212]" />}
+              </button>
+              <span className="text-[9px] font-mono font-bold bg-[#121212] text-[#05DF72] px-1">
+                LIVE
+              </span>
+            </div>
           </div>
           <div className="text-xl font-mono font-black text-[#121212]">
-            {currencySymbol} {(stats?.totalBalance ?? 0).toLocaleString()}
+            {formatPrivateAmount(stats?.totalBalance ?? 0, currencySymbol)}
           </div>
           <div className="flex items-center justify-between text-[10px] font-bold text-neutral-800 pt-1 border-t border-[#121212]/30">
             <span>SAVINGS RATE</span>
-            <span className="font-mono font-black">{stats?.savingsRate ?? 0}%</span>
+            <span className="font-mono font-black">{isPrivacyMode ? '••' : `${stats?.savingsRate ?? 0}%`}</span>
           </div>
         </div>
       </div>
