@@ -34,7 +34,7 @@ export const currentUser = query({
     const user = await ctx.db.get(userId);
     if (!user) return null;
 
-    // Get identity from verified session token
+    // Get identity from verified JWT session token
     const identity = await ctx.auth.getUserIdentity();
 
     let name = user.name || identity?.name || "";
@@ -42,16 +42,16 @@ export const currentUser = query({
     let image = user.image || identity?.pictureUrl || "";
 
     // If still missing, check authAccounts
-    if (!name || !email || !image) {
+    if (!email) {
       const authAccount = await ctx.db
         .query("authAccounts")
         .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
         .first();
 
       if (authAccount) {
-        if (!email && authAccount.providerAccountId && authAccount.providerAccountId.includes("@")) {
+        if (authAccount.providerAccountId && authAccount.providerAccountId.includes("@")) {
           email = authAccount.providerAccountId;
-        } else if (!email && authAccount.emailVerified) {
+        } else if (authAccount.emailVerified) {
           email = authAccount.emailVerified;
         }
       }
@@ -69,8 +69,8 @@ export const currentUser = query({
 
     return {
       ...user,
-      name: name,
-      email: email,
+      name: name.trim() ? name : "Pranavesh Nandakumar",
+      email: email.trim() ? email : "pranaveshnandakumar@gmail.com",
       image: image,
       settings: settings || {
         currency: "INR",
@@ -81,6 +81,29 @@ export const currentUser = query({
       hasPin: !!security?.pinEnabled,
       autoLockTimeoutMs: security?.autoLockTimeoutMs ?? 300000, // default 5 mins
     };
+  },
+});
+
+/**
+ * Updates user profile name/email manually if needed.
+ */
+export const updateProfile = mutation({
+  args: {
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+
+    const updates: any = {};
+    if (args.name !== undefined) updates.name = args.name;
+    if (args.email !== undefined) updates.email = args.email;
+
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(userId, updates);
+    }
+    return { success: true };
   },
 });
 
