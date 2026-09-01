@@ -144,6 +144,63 @@ export const add = mutation({
   },
 });
 
+export const batchAdd = mutation({
+  args: {
+    items: v.array(
+      v.object({
+        name: v.string(),
+        assetType: v.union(
+          v.literal("mutual_fund"),
+          v.literal("stocks"),
+          v.literal("fd_rd"),
+          v.literal("gold"),
+          v.literal("crypto"),
+          v.literal("ppf_epf"),
+          v.literal("real_estate"),
+          v.literal("other")
+        ),
+        investedAmount: v.number(),
+        currentValue: v.number(),
+        units: v.optional(v.number()),
+        buyPrice: v.optional(v.number()),
+        currentPrice: v.optional(v.number()),
+        sipAmount: v.optional(v.number()),
+        sipDay: v.optional(v.number()),
+        notes: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+
+    const insertedIds = [];
+    const now = Date.now();
+
+    for (const item of args.items) {
+      if (!item.name.trim()) continue;
+      const id = await ctx.db.insert("investments", {
+        userId,
+        name: item.name.trim(),
+        assetType: item.assetType,
+        investedAmount: Math.max(0, item.investedAmount),
+        currentValue: Math.max(0, item.currentValue),
+        units: item.units,
+        buyPrice: item.buyPrice,
+        currentPrice: item.currentPrice,
+        sipAmount: item.sipAmount,
+        sipDay: item.sipDay,
+        notes: item.notes,
+        createdAt: now,
+        updatedAt: now,
+      });
+      insertedIds.push(id);
+    }
+
+    return { success: true, count: insertedIds.length };
+  },
+});
+
 export const update = mutation({
   args: {
     id: v.id("investments"),

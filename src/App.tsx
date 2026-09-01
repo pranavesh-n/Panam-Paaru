@@ -30,6 +30,7 @@ import { PinSetupModal } from './components/pin/PinSetupModal';
 import { TransactionFormModal } from './components/transactions/TransactionFormModal';
 import { BudgetModal } from './components/budgets/BudgetModal';
 import { InvestmentModal } from './components/investments/InvestmentModal';
+import { InvestmentImportModal } from './components/investments/InvestmentImportModal';
 
 // Pages
 import { OverviewPage } from './pages/OverviewPage';
@@ -66,6 +67,7 @@ export function AppContent() {
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [isInvestmentModalOpen, setIsInvestmentModalOpen] = useState(false);
+  const [isInvestmentImportModalOpen, setIsInvestmentImportModalOpen] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [isPinSetupModalOpen, setIsPinSetupModalOpen] = useState(false);
 
@@ -88,6 +90,7 @@ export function AppContent() {
   const removeBudgetMutation = useMutation(api.budgets.remove);
   const topUpBudgetMutation = useMutation(api.budgets.topUp);
   const addInvestmentMutation = useMutation(api.investments.add);
+  const batchAddInvestmentMutation = useMutation(api.investments.batchAdd);
   const updateInvestmentMutation = useMutation(api.investments.update);
   const quickUpdateInvestmentMutation = useMutation(api.investments.quickUpdateValue);
   const removeInvestmentMutation = useMutation(api.investments.remove);
@@ -252,6 +255,22 @@ export function AppContent() {
     }
   };
 
+  const handleBatchImportInvestments = async (
+    items: {
+      name: string;
+      assetType: AssetType;
+      investedAmount: number;
+      currentValue: number;
+      units?: number;
+      buyPrice?: number;
+      currentPrice?: number;
+      notes?: string;
+    }[]
+  ) => {
+    if (navigator.vibrate) navigator.vibrate(30);
+    await batchAddInvestmentMutation({ items });
+  };
+
   const handleQuickUpdateInvestmentValue = async (id: string, currentValue: number) => {
     if (navigator.vibrate) navigator.vibrate(15);
     await quickUpdateInvestmentMutation({
@@ -373,6 +392,7 @@ export function AppContent() {
                 setEditingInvestment(null);
                 setIsInvestmentModalOpen(true);
               }}
+              onOpenImportModal={() => setIsInvestmentImportModalOpen(true)}
               onEdit={(inv) => {
                 setEditingInvestment(inv);
                 setIsInvestmentModalOpen(true);
@@ -438,7 +458,7 @@ export function AppContent() {
         currencySymbol={currencySymbol}
       />
 
-      {/* Investment Modal */}
+      {/* Single Investment Modal */}
       <InvestmentModal
         isOpen={isInvestmentModalOpen}
         onClose={() => {
@@ -447,6 +467,14 @@ export function AppContent() {
         }}
         onSubmit={handleSaveInvestment}
         initialData={editingInvestment}
+        currencySymbol={currencySymbol}
+      />
+
+      {/* Batch Statement Import Modal (PDF / Excel / CSV) */}
+      <InvestmentImportModal
+        isOpen={isInvestmentImportModalOpen}
+        onClose={() => setIsInvestmentImportModalOpen(false)}
+        onBatchImport={handleBatchImportInvestments}
         currencySymbol={currencySymbol}
       />
 

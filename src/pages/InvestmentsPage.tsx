@@ -17,12 +17,15 @@ import {
   ArrowDownLeft,
   CheckCircle2,
   RefreshCw,
+  UploadCloud,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface InvestmentsPageProps {
   investments: Investment[];
   portfolioSummary: PortfolioSummary | null;
   onOpenAddModal: (defaultType?: AssetType) => void;
+  onOpenImportModal: () => void;
   onEdit: (inv: Investment) => void;
   onDelete: (id: string) => void;
   onQuickUpdateValue: (id: string, currentValue: number) => Promise<void>;
@@ -44,6 +47,7 @@ export const InvestmentsPage: React.FC<InvestmentsPageProps> = ({
   investments,
   portfolioSummary,
   onOpenAddModal,
+  onOpenImportModal,
   onEdit,
   onDelete,
   onQuickUpdateValue,
@@ -98,19 +102,31 @@ export const InvestmentsPage: React.FC<InvestmentsPageProps> = ({
             INVESTMENT TRACKER
           </h2>
           <p className="text-xs font-bold text-neutral-800 mt-0.5">
-            Track Mutual Funds, Equities, Gold, FDs, Crypto & SIPs in one unified wealth dashboard.
+            Track Mutual Funds, Equities, Gold, FDs, Crypto & SIPs. Upload CAS PDFs or Excel sheets to import all at once!
           </p>
         </div>
 
-        <NeoButton
-          variant="dark"
-          size="md"
-          onClick={() => onOpenAddModal()}
-          className="flex items-center gap-1.5 shrink-0"
-        >
-          <Plus size={16} strokeWidth={3} className="text-[#05DF72]" />
-          <span>+ Add Investment</span>
-        </NeoButton>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <NeoButton
+            variant="outline"
+            size="md"
+            onClick={onOpenImportModal}
+            className="flex items-center gap-1.5 bg-white"
+          >
+            <UploadCloud size={16} strokeWidth={2.5} />
+            <span>Import Statement (PDF/Excel)</span>
+          </NeoButton>
+
+          <NeoButton
+            variant="dark"
+            size="md"
+            onClick={() => onOpenAddModal()}
+            className="flex items-center gap-1.5"
+          >
+            <Plus size={16} strokeWidth={3} className="text-[#05DF72]" />
+            <span>+ Add Asset</span>
+          </NeoButton>
+        </div>
       </div>
 
       {/* Top 4 Key Portfolio Metrics */}
@@ -277,17 +293,15 @@ export const InvestmentsPage: React.FC<InvestmentsPageProps> = ({
             No Investment Assets Added
           </h3>
           <p className="text-xs font-semibold text-neutral-600 max-w-md">
-            Start tracking your Mutual Funds, SIPs, Stocks, Gold, and FDs. Keep valuations up to date with 1-click live updates!
+            Import your complete CAMS / KFintech CAS (PDF), Zerodha / Groww statement (Excel/CSV), or add assets manually!
           </p>
-          <div className="flex flex-wrap justify-center gap-2 mt-2">
-            <NeoButton variant="secondary" size="sm" onClick={() => onOpenAddModal('mutual_fund')}>
-              + Add Mutual Fund / SIP
+          <div className="flex flex-wrap justify-center gap-2.5 mt-2">
+            <NeoButton variant="dark" size="md" onClick={onOpenImportModal} className="flex items-center gap-1.5">
+              <UploadCloud size={16} strokeWidth={2.5} className="text-[#05DF72]" />
+              <span>Import Statement File (PDF / Excel / CSV)</span>
             </NeoButton>
-            <NeoButton variant="outline" size="sm" onClick={() => onOpenAddModal('stocks')}>
-              + Add Stock Holding
-            </NeoButton>
-            <NeoButton variant="outline" size="sm" onClick={() => onOpenAddModal('gold')}>
-              + Add Gold / FD
+            <NeoButton variant="secondary" size="md" onClick={() => onOpenAddModal('mutual_fund')}>
+              + Add Manually
             </NeoButton>
           </div>
         </div>
