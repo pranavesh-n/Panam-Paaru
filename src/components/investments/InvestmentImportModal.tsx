@@ -4,6 +4,7 @@ import { NeoButton } from '../ui/NeoButton';
 import {
   extractRawGrid,
   autoExtractHoldings,
+  parseInvestmentFile,
   parsePastedText,
   parseCleanNumber,
   detectAssetType,
@@ -97,20 +98,19 @@ export const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
       setIsParsing(true);
       setError('');
 
-      const grid = await extractRawGrid(file);
-      setRawGrid(grid);
+      const result = await parseInvestmentFile(file);
+      setRawGrid(result.rawGrid);
 
-      const extracted = autoExtractHoldings(grid);
-      if (extracted.length > 0) {
-        setParsedHoldings(extracted);
+      if (result.holdings.length > 0) {
+        setParsedHoldings(result.holdings);
         setShowColumnMapper(false);
       } else {
         // Fallback to Visual Column Mapper if automatic heuristics need user alignment
         setShowColumnMapper(true);
-        if (grid.sheets[0]?.rows?.[0]) {
+        if (result.rawGrid.sheets[0]?.rows?.[0]) {
           setNameColIdx(0);
-          setInvestedColIdx(Math.min(1, grid.sheets[0].rows[0].length - 1));
-          setCurrentColIdx(Math.min(2, grid.sheets[0].rows[0].length - 1));
+          setInvestedColIdx(Math.min(1, result.rawGrid.sheets[0].rows[0].length - 1));
+          setCurrentColIdx(Math.min(2, result.rawGrid.sheets[0].rows[0].length - 1));
         }
       }
       setIsParsing(false);
