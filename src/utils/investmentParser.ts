@@ -2,7 +2,6 @@ import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { AssetType } from '../types';
 
-// Configure pdfjs worker if in browser
 if (typeof window !== 'undefined' && 'Worker' in window) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 }
@@ -22,8 +21,16 @@ export interface ParsedHolding {
   selected: boolean;
 }
 
+export interface RawFileContent {
+  fileName: string;
+  sheets: {
+    sheetName: string;
+    rows: (string | number)[][];
+  }[];
+}
+
 /**
- * Clean and parse numeric currency string (handles ₹, $, commas, %, parenthetical negatives)
+ * Clean and parse numeric currency string (handles ₹, $, commas, %, parenthetical negatives, Lakhs/Crores)
  */
 export function parseCleanNumber(val: any): number {
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
@@ -32,6 +39,17 @@ export function parseCleanNumber(val: any): number {
     .replace(/[₹$,\s%]/g, '')
     .replace(/\((.*?)\)/g, '-$1')
     .trim();
+  
+  if (str.endsWith('k') || str.endsWith('K')) {
+    return (parseFloat(str) || 0) * 1000;
+  }
+  if (str.endsWith('L') || str.endsWith('l') || str.endsWith('Lakh') || str.endsWith('lakh')) {
+    return (parseFloat(str) || 0) * 100000;
+  }
+  if (str.endsWith('Cr') || str.endsWith('cr') || str.endsWith('crore')) {
+    return (parseFloat(str) || 0) * 10000000;
+  }
+
   const num = parseFloat(str);
   return isNaN(num) ? 0 : num;
 }
@@ -50,14 +68,13 @@ export function detectAssetType(name: string): AssetType {
     lower.includes('regular') ||
     lower.includes('elss') ||
     lower.includes('index') ||
-    lower.includes('flexi cap') ||
+    lower.includes('flexi') ||
     lower.includes('small cap') ||
     lower.includes('mid cap') ||
     lower.includes('large cap') ||
     lower.includes('hybrid') ||
     lower.includes('arbitrage') ||
     lower.includes('liquid') ||
-    lower.includes('overnight') ||
     lower.includes('parag parikh') ||
     lower.includes('mirae') ||
     lower.includes('nippon') ||
@@ -66,10 +83,9 @@ export function detectAssetType(name: string): AssetType {
     lower.includes('uti') ||
     lower.includes('quant') ||
     lower.includes('icici pru') ||
-    lower.includes('tata digital') ||
     lower.includes('motilal') ||
-    lower.includes('axis mf') ||
-    lower.includes('kotak mf')
+    lower.includes('axis') ||
+    lower.includes('kotak')
   ) {
     return 'mutual_fund';
   }
@@ -87,175 +103,163 @@ export function detectAssetType(name: string): AssetType {
     lower.includes('tcs') ||
     lower.includes('wipro') ||
     lower.includes('itc') ||
-    lower.includes('hcl') ||
-    lower.includes('bharti') ||
     lower.includes('etf')
   ) {
     return 'stocks';
   }
 
   // Gold & Silver
-  if (
-    lower.includes('gold') ||
-    lower.includes('silver') ||
-    lower.includes('sgb') ||
-    lower.includes('sovereign')
-  ) {
+  if (lower.includes('gold') || lower.includes('silver') || lower.includes('sgb') || lower.includes('sovereign')) {
     return 'gold';
   }
 
   // Fixed Deposits & RDs
-  if (
-    lower.includes('fd') ||
-    lower.includes('fixed deposit') ||
-    lower.includes('recurring deposit') ||
-    lower.includes('rd')
-  ) {
+  if (lower.includes('fd') || lower.includes('fixed deposit') || lower.includes('recurring deposit') || lower.includes('rd')) {
     return 'fd_rd';
   }
 
   // Crypto
-  if (
-    lower.includes('bitcoin') ||
-    lower.includes('btc') ||
-    lower.includes('ethereum') ||
-    lower.includes('eth') ||
-    lower.includes('crypto') ||
-    lower.includes('solana') ||
-    lower.includes('usdt') ||
-    lower.includes('doge')
-  ) {
+  if (lower.includes('bitcoin') || lower.includes('btc') || lower.includes('ethereum') || lower.includes('eth') || lower.includes('crypto') || lower.includes('solana') || lower.includes('usdt')) {
     return 'crypto';
   }
 
   // PPF & EPF / Retirement
-  if (
-    lower.includes('ppf') ||
-    lower.includes('epf') ||
-    lower.includes('pf') ||
-    lower.includes('nps') ||
-    lower.includes('provident')
-  ) {
+  if (lower.includes('ppf') || lower.includes('epf') || lower.includes('pf') || lower.includes('nps') || lower.includes('provident')) {
     return 'ppf_epf';
   }
 
   // Real Estate
-  if (
-    lower.includes('reit') ||
-    lower.includes('land') ||
-    lower.includes('plot') ||
-    lower.includes('apartment') ||
-    lower.includes('property')
-  ) {
+  if (lower.includes('reit') || lower.includes('land') || lower.includes('plot') || lower.includes('apartment') || lower.includes('property')) {
     return 'real_estate';
   }
 
   return 'mutual_fund';
 }
 
-/**
- * Filter out boilerplate / header / footer rows
- */
 function isNoiseRow(text: string): boolean {
   const t = text.toLowerCase().trim();
   if (t.length < 2) return true;
   return (
-    t.includes('total') ||
     t.includes('disclaimer') ||
     t.includes('summary') ||
     t.includes('subtotal') ||
-    t.includes('portfolio value') ||
-    t.includes('all amounts in inr') ||
+    t.includes('all amounts in') ||
     t.includes('generated on') ||
     t.includes('page ') ||
     t.includes('statement for') ||
     t.includes('account holder') ||
     t.includes('pan :') ||
-    t.includes('folio no') ||
     t.includes('brokerage')
   );
 }
 
 /**
- * Universal Excel (.xlsx, .xls) & CSV / TSV Parser
- * Handles Zerodha, Groww, AngelOne, CAMS CAS Excel, Upstox, INDmoney, Kuvera & Custom sheets
+ * Extract Raw Grid of rows from any Excel, CSV, or Text file
  */
-export async function parseExcelOrCsv(file: File): Promise<ParsedHolding[]> {
+export async function extractRawGrid(file: File): Promise<RawFileContent> {
+  const ext = file.name.split('.').pop()?.toLowerCase();
+
+  if (ext === 'pdf') {
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const numPages = pdf.numPages;
+    const lines: string[][] = [];
+
+    for (let p = 1; p <= numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const pageLines = content.items.map((item: any) => String(item.str || '').trim()).filter(Boolean);
+      
+      // Group PDF lines into columns if separated by tabs or multiple spaces
+      for (const pline of pageLines) {
+        const cols = pline.split(/\s{2,}|\t/).filter(Boolean);
+        if (cols.length > 0) lines.push(cols);
+      }
+    }
+
+    return {
+      fileName: file.name,
+      sheets: [{ sheetName: 'PDF Statement', rows: lines }],
+    };
+  }
+
+  // Excel / CSV / TSV
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array', raw: false });
+  const sheets = workbook.SheetNames.map((name) => {
+    const sheet = workbook.Sheets[name];
+    const rows: (string | number)[][] = sheet
+      ? XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+      : [];
+    return { sheetName: name, rows };
+  });
 
-  const allHoldings: ParsedHolding[] = [];
+  return { fileName: file.name, sheets };
+}
 
-  // Iterate across all sheets in the workbook
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-    if (!sheet) continue;
+/**
+ * Automatically attempt to extract holdings from raw grid
+ */
+export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
+  const holdings: ParsedHolding[] = [];
 
-    // Convert sheet to 2D array of rows
-    const matrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (!matrix || matrix.length < 2) continue;
+  for (const sheet of raw.sheets) {
+    const matrix = sheet.rows;
+    if (!matrix || matrix.length === 0) continue;
 
-    // 1. Find Header Row by scanning first 30 rows
-    let headerRowIdx = -1;
-    let colMap: Record<string, number> = {};
+    // 1. Scan for header
+    let headerIdx = -1;
+    let nameCol = -1;
+    let invCol = -1;
+    let curCol = -1;
+    let qtyCol = -1;
+    let buyPriceCol = -1;
+    let curPriceCol = -1;
+    let pnlCol = -1;
 
-    for (let r = 0; r < Math.min(matrix.length, 30); r++) {
-      const row = matrix[r].map((cell: any) => String(cell || '').trim().toLowerCase());
-      
-      const nameIdx = row.findIndex((c: string) =>
-        /scheme|instrument|symbol|stock|holding|asset|particular|security|company|scrip|fund|description|name/i.test(c)
+    for (let r = 0; r < Math.min(matrix.length, 35); r++) {
+      const row = matrix[r].map((c) => String(c || '').trim().toLowerCase());
+      const nIdx = row.findIndex((c) =>
+        /scheme|instrument|symbol|stock|holding|particular|security|company|scrip|fund|name/i.test(c)
       );
-      const qtyIdx = row.findIndex((c: string) =>
-        /qty|quantity|units|volume|balance|shares|avail.*qty/i.test(c)
-      );
-      const valIdx = row.findIndex((c: string) =>
-        /invested|current|market.*val|cur.*val|cost|present.*val|val.*today|amount|total.*cost|nav|ltp|cmp/i.test(c)
-      );
-
-      if (nameIdx !== -1 && (qtyIdx !== -1 || valIdx !== -1)) {
-        headerRowIdx = r;
+      if (nIdx !== -1) {
+        headerIdx = r;
+        nameCol = nIdx;
+        row.forEach((colName, cIdx) => {
+          if (/invested|cost.*val|purchase.*val|inv.*val|total.*cost|buy.*val|principal/i.test(colName) && invCol === -1) {
+            invCol = cIdx;
+          } else if (/current|market.*val|cur.*val|present.*val|latest.*val|val.*today|valuation|amount/i.test(colName) && curCol === -1) {
+            curCol = cIdx;
+          } else if (/qty|quantity|units|shares|volume|balance/i.test(colName) && qtyCol === -1) {
+            qtyCol = cIdx;
+          } else if (/buy.*price|avg.*cost|avg.*price|buy.*avg|cost.*price|purchase.*price/i.test(colName) && buyPriceCol === -1) {
+            buyPriceCol = cIdx;
+          } else if (/ltp|cmp|current.*price|market.*price|nav|closing/i.test(colName) && curPriceCol === -1) {
+            curPriceCol = cIdx;
+          } else if (/p\&l|profit.*loss|unrealized/i.test(colName) && pnlCol === -1) {
+            pnlCol = cIdx;
+          }
+        });
         break;
       }
     }
 
-    // 2. If a recognized header was found, map columns
-    if (headerRowIdx !== -1) {
-      const headerRow = matrix[headerRowIdx].map((c: any) => String(c || '').trim().toLowerCase());
-      
-      headerRow.forEach((colName: string, idx: number) => {
-        if (/scheme|instrument|symbol|stock|holding|asset|particular|security|company|scrip|name/i.test(colName) && !colMap.name) {
-          colMap.name = idx;
-        } else if (/invested|cost.*val|purchase.*val|inv.*val|total.*cost|buy.*val|cost.*price|principal/i.test(colName) && !colMap.invested) {
-          colMap.invested = idx;
-        } else if (/current|market.*val|cur.*val|present.*val|latest.*val|val.*today|valuation/i.test(colName) && !colMap.current) {
-          colMap.current = idx;
-        } else if (/qty|quantity|units|shares|volume|balance/i.test(colName) && !colMap.units) {
-          colMap.units = idx;
-        } else if (/buy.*price|avg.*cost|avg.*price|buy.*avg|cost.*price|purchase.*price/i.test(colName) && !colMap.buyPrice) {
-          colMap.buyPrice = idx;
-        } else if (/ltp|cmp|current.*price|market.*price|nav|current.*nav|latest.*nav|closing/i.test(colName) && !colMap.currentPrice) {
-          colMap.currentPrice = idx;
-        } else if (/p\&l|profit.*loss|unrealized|net.*p\&l/i.test(colName) && !colMap.pnl) {
-          colMap.pnl = idx;
-        }
-      });
-
-      // Parse data rows starting after headerRowIdx
-      for (let r = headerRowIdx + 1; r < matrix.length; r++) {
+    // If header found, extract rows
+    if (headerIdx !== -1 && nameCol !== -1) {
+      for (let r = headerIdx + 1; r < matrix.length; r++) {
         const row = matrix[r];
         if (!row || row.length === 0) continue;
 
-        const rawName = String(colMap.name !== undefined ? row[colMap.name] : row[0] || '').trim();
+        const rawName = String(row[nameCol] || '').trim();
         if (!rawName || isNoiseRow(rawName)) continue;
 
-        let units = colMap.units !== undefined ? parseCleanNumber(row[colMap.units]) : undefined;
-        let buyPrice = colMap.buyPrice !== undefined ? parseCleanNumber(row[colMap.buyPrice]) : undefined;
-        let currentPrice = colMap.currentPrice !== undefined ? parseCleanNumber(row[colMap.currentPrice]) : undefined;
-        let invested = colMap.invested !== undefined ? parseCleanNumber(row[colMap.invested]) : 0;
-        let current = colMap.current !== undefined ? parseCleanNumber(row[colMap.current]) : 0;
-        let pnl = colMap.pnl !== undefined ? parseCleanNumber(row[colMap.pnl]) : undefined;
+        let units = qtyCol !== -1 ? parseCleanNumber(row[qtyCol]) : undefined;
+        let buyPrice = buyPriceCol !== -1 ? parseCleanNumber(row[buyPriceCol]) : undefined;
+        let currentPrice = curPriceCol !== -1 ? parseCleanNumber(row[curPriceCol]) : undefined;
+        let invested = invCol !== -1 ? parseCleanNumber(row[invCol]) : 0;
+        let current = curCol !== -1 ? parseCleanNumber(row[curCol]) : 0;
+        let pnl = pnlCol !== -1 ? parseCleanNumber(row[pnlCol]) : undefined;
 
-        // Auto calculate missing values
         if (invested === 0 && units && buyPrice) invested = units * buyPrice;
         if (current === 0 && units && currentPrice) current = units * currentPrice;
         if (current === 0 && invested > 0 && pnl !== undefined) current = invested + pnl;
@@ -264,8 +268,8 @@ export async function parseExcelOrCsv(file: File): Promise<ParsedHolding[]> {
         if (current === 0 && invested > 0) current = invested;
 
         if (invested > 0 || current > 0) {
-          allHoldings.push({
-            id: `row_${sheetName}_${r}_${Date.now()}`,
+          holdings.push({
+            id: `auto_${sheet.sheetName}_${r}_${Date.now()}`,
             name: rawName,
             assetType: detectAssetType(rawName),
             investedAmount: Math.abs(Number(invested.toFixed(2))),
@@ -278,20 +282,20 @@ export async function parseExcelOrCsv(file: File): Promise<ParsedHolding[]> {
         }
       }
     } else {
-      // 3. Fallback: Positional Scan (Find rows with a String in Col 0/1 and Numbers in subsequent cols)
+      // Positional Scan fallback
       for (let r = 0; r < matrix.length; r++) {
         const row = matrix[r];
         if (!row || row.length < 2) continue;
 
         const stringCell = row.find((c: any) => typeof c === 'string' && c.trim().length > 3 && !isNoiseRow(c));
-        const numCells = row.map(parseCleanNumber).filter((n: number) => n > 10);
+        const numCells = row.map(parseCleanNumber).filter((n: number) => n > 5);
 
         if (stringCell && numCells.length >= 1) {
           const invested = numCells[0];
           const current = numCells.length >= 2 ? numCells[1] : invested;
 
-          allHoldings.push({
-            id: `fallback_${sheetName}_${r}_${Date.now()}`,
+          holdings.push({
+            id: `pos_${sheet.sheetName}_${r}_${Date.now()}`,
             name: String(stringCell).trim(),
             assetType: detectAssetType(String(stringCell)),
             investedAmount: Math.abs(Number(invested.toFixed(2))),
@@ -305,134 +309,32 @@ export async function parseExcelOrCsv(file: File): Promise<ParsedHolding[]> {
 
   // Deduplicate
   const seen = new Set<string>();
-  const unique = allHoldings.filter((h) => {
+  return holdings.filter((h) => {
     const key = h.name.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-
-  if (unique.length === 0) {
-    throw new Error(
-      'Could not extract investment rows from this file. Please verify the spreadsheet contains holding names and invested/current values.'
-    );
-  }
-
-  return unique;
 }
 
 /**
- * Universal PDF Statement Parser (CAMS CAS, KFintech, Zerodha, Groww)
+ * Parse from raw text pasted from clipboard (CSV, TSV, or table format)
  */
-export async function parsePdfStatement(file: File): Promise<ParsedHolding[]> {
-  const buffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-  const numPages = pdf.numPages;
+export function parsePastedText(text: string): ParsedHolding[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [];
 
-  const lines: string[] = [];
-  let fullText = '';
-
-  for (let p = 1; p <= numPages; p++) {
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    const pageLines = content.items.map((item: any) => item.str).filter(Boolean);
-    lines.push(...pageLines);
-    fullText += pageLines.join(' ') + '\n';
-  }
-
-  const holdings: ParsedHolding[] = [];
-  let idCounter = 0;
-
-  // Regex 1: Match mutual fund scheme blocks in CAS / CAMS / KFintech
-  const schemeRegex = /([A-Za-z0-9][A-Za-z0-9\s\-\&]{3,70}(?:Fund|Growth|Direct|ELSS|Index|Cap|Equity|Plan|Arbitrage|Liquid|ETF)[A-Za-z0-9\s\-\&]*)/gi;
-
-  const textBlocks = fullText.split(/\n+/);
-  for (const block of textBlocks) {
-    const numbers = block.match(/[\d,]+\.\d{2}/g);
-    if (numbers && numbers.length >= 2) {
-      const parsedNums = numbers.map(parseCleanNumber).filter((n) => n > 10);
-      if (parsedNums.length >= 2) {
-        const schemeMatch = block.match(schemeRegex);
-        const name = schemeMatch ? schemeMatch[0].trim() : '';
-
-        if (name && name.length >= 4 && !isNoiseRow(name)) {
-          const invested = parsedNums[0];
-          const current = parsedNums[1];
-
-          holdings.push({
-            id: `pdf_block_${Date.now()}_${idCounter++}`,
-            name,
-            assetType: detectAssetType(name),
-            investedAmount: Math.min(invested, current),
-            currentValue: Math.max(invested, current),
-            selected: true,
-          });
-        }
-      }
-    }
-  }
-
-  // Regex 2: Line-by-line lookahead
-  if (holdings.length === 0) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (
-        (line.includes('Fund') || line.includes('Growth') || line.includes('Direct') || line.includes('Ltd') || line.includes('Shares')) &&
-        line.length > 5 &&
-        !isNoiseRow(line)
-      ) {
-        const upcomingNumbers: number[] = [];
-        for (let j = 1; j <= 6 && i + j < lines.length; j++) {
-          const val = parseCleanNumber(lines[i + j]);
-          if (val > 100) upcomingNumbers.push(val);
-        }
-
-        if (upcomingNumbers.length >= 1) {
-          const invested = upcomingNumbers[0];
-          const current = upcomingNumbers[1] || invested;
-
-          holdings.push({
-            id: `pdf_line_${Date.now()}_${idCounter++}`,
-            name: line,
-            assetType: detectAssetType(line),
-            investedAmount: Math.min(invested, current),
-            currentValue: Math.max(invested, current),
-            selected: true,
-          });
-        }
-      }
-    }
-  }
-
-  // Deduplicate
-  const seen = new Set<string>();
-  const unique = holdings.filter((h) => {
-    const key = h.name.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  const rows = lines.map((l) => {
+    if (l.includes('\t')) return l.split('\t');
+    if (l.includes(',')) return l.split(',');
+    if (l.includes(';')) return l.split(';');
+    return l.split(/\s{2,}/);
   });
 
-  if (unique.length === 0) {
-    throw new Error(
-      'Could not detect investment tables in this PDF. If the statement is password protected, please remove the password or export as Excel/CSV for 100% extraction.'
-    );
-  }
+  const raw: RawFileContent = {
+    fileName: 'Pasted Data',
+    sheets: [{ sheetName: 'Pasted', rows }],
+  };
 
-  return unique;
-}
-
-/**
- * Universal Unified File Parser (PDF, Excel, CSV, TSV)
- */
-export async function parseInvestmentFile(file: File): Promise<ParsedHolding[]> {
-  const ext = file.name.split('.').pop()?.toLowerCase();
-
-  if (ext === 'pdf') {
-    return await parsePdfStatement(file);
-  } else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv' || ext === 'tsv') {
-    return await parseExcelOrCsv(file);
-  } else {
-    throw new Error('Unsupported format. Please upload a PDF (.pdf), Excel (.xlsx/.xls), or CSV (.csv) statement.');
-  }
+  return autoExtractHoldings(raw);
 }
