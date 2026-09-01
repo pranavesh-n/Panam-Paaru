@@ -30,28 +30,64 @@ export interface RawFileContent {
 }
 
 /**
- * Clean and parse numeric currency string (handles ₹, $, commas, %, parenthetical negatives, Lakhs/Crores)
+ * Clean and parse numeric currency string (handles ₹, $, commas, %, parenthetical negatives)
  */
 export function parseCleanNumber(val: any): number {
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
   if (!val) return 0;
   let str = String(val)
-    .replace(/[₹$,\s%]/g, '')
+    .replace(/[₹$,\s%INR]/gi, '')
     .replace(/\((.*?)\)/g, '-$1')
     .trim();
-  
-  if (str.endsWith('k') || str.endsWith('K')) {
-    return (parseFloat(str) || 0) * 1000;
-  }
-  if (str.endsWith('L') || str.endsWith('l') || str.endsWith('Lakh') || str.endsWith('lakh')) {
-    return (parseFloat(str) || 0) * 100000;
-  }
-  if (str.endsWith('Cr') || str.endsWith('cr') || str.endsWith('crore')) {
-    return (parseFloat(str) || 0) * 10000000;
-  }
+
+  // If it's a 10-digit mobile number or date or pincode, discard
+  if (/^[6-9]\d{9}$/.test(str)) return 0;
+  if (/^\d{2}[-/]\d{2}[-/]\d{2,4}$/.test(str)) return 0;
 
   const num = parseFloat(str);
   return isNaN(num) ? 0 : num;
+}
+
+/**
+ * Identify if a row or name is a metadata key or personal info (Mobile, PAN, Address, Folio)
+ */
+export function isMetadataOrNoise(text: string): boolean {
+  const t = text.toLowerCase().trim();
+  if (t.length < 3) return true;
+
+  // Check if text is just a number (like "37554" or "9876543210")
+  if (/^\d+$/.test(t)) return true;
+
+  // Metadata keywords
+  return (
+    t.includes('mobile') ||
+    t.includes('phone') ||
+    t.includes('pan :') ||
+    t.includes('pan:') ||
+    t.includes('email') ||
+    t.includes('address') ||
+    t.includes('nominee') ||
+    t.includes('pin code') ||
+    t.includes('pincode') ||
+    t.includes('folio no') ||
+    t.includes('statement period') ||
+    t.includes('valuation date') ||
+    t.includes('isin') ||
+    t.includes('account holder') ||
+    t.includes('investor name') ||
+    t.includes('disclaimer') ||
+    t.includes('summary') ||
+    t.includes('subtotal') ||
+    t.includes('generated on') ||
+    t.includes('consolidated') ||
+    t.includes('page ') ||
+    t.includes('amc:') ||
+    t.includes('registrar') ||
+    t.includes('cams') ||
+    t.includes('kfintech') ||
+    t.includes('karvy') ||
+    t.includes('brokerage')
+  );
 }
 
 /**
@@ -85,7 +121,9 @@ export function detectAssetType(name: string): AssetType {
     lower.includes('icici pru') ||
     lower.includes('motilal') ||
     lower.includes('axis') ||
-    lower.includes('kotak')
+    lower.includes('kotak') ||
+    lower.includes('dsp') ||
+    lower.includes('tata')
   ) {
     return 'mutual_fund';
   }
@@ -98,7 +136,6 @@ export function detectAssetType(name: string): AssetType {
     lower.includes('eq') ||
     lower.includes('equity') ||
     lower.includes('reliance') ||
-    lower.includes('tata') ||
     lower.includes('infosys') ||
     lower.includes('tcs') ||
     lower.includes('wipro') ||
@@ -136,25 +173,8 @@ export function detectAssetType(name: string): AssetType {
   return 'mutual_fund';
 }
 
-function isNoiseRow(text: string): boolean {
-  const t = text.toLowerCase().trim();
-  if (t.length < 2) return true;
-  return (
-    t.includes('disclaimer') ||
-    t.includes('summary') ||
-    t.includes('subtotal') ||
-    t.includes('all amounts in') ||
-    t.includes('generated on') ||
-    t.includes('page ') ||
-    t.includes('statement for') ||
-    t.includes('account holder') ||
-    t.includes('pan :') ||
-    t.includes('brokerage')
-  );
-}
-
 /**
- * Extract Raw Grid of rows from any Excel, CSV, or Text file
+ * Extract Raw Grid of rows from Excel, CSV, or PDF
  */
 export async function extractRawGrid(file: File): Promise<RawFileContent> {
   const ext = file.name.split('.').pop()?.toLowerCase();
@@ -163,17 +183,36 @@ export async function extractRawGrid(file: File): Promise<RawFileContent> {
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
     const numPages = pdf.numPages;
-    const lines: string[][] = [];
+    const lines: (string | number)[][] = [];
 
     for (let p = 1; p <= numPages; p++) {
       const page = await pdf.getPage(p);
       const content = await page.getTextContent();
-      const pageLines = content.items.map((item: any) => String(item.str || '').trim()).filter(Boolean);
-      
-      // Group PDF lines into columns if separated by tabs or multiple spaces
-      for (const pline of pageLines) {
-        const cols = pline.split(/\s{2,}|\t/).filter(Boolean);
-        if (cols.length > 0) lines.push(cols);
+      const pageItems = content.items.map((item: any) => String(item.str || '').trim()).filter(Boolean);
+
+      for (let i = 0; i < pageItems.length; i++) {
+        const item = pageItems[i];
+        if (isMetadataOrNoise(item)) continue;
+
+        // If line is a mutual fund scheme name (e.g. Parag Parikh, Nippon, etc.)
+        if (
+          (item.includes('Fund') || item.includes('Growth') || item.includes('Direct') || item.includes('ELSS') || item.includes('Cap')) &&
+          item.length > 8
+        ) {
+          // Look ahead for numbers in the next 8 items
+          const nums: number[] = [];
+          for (let j = 1; j <= 8 && i + j < pageItems.length; j++) {
+            const nextItem = pageItems[i + j];
+            if (!isMetadataOrNoise(nextItem)) {
+              const val = parseCleanNumber(nextItem);
+              if (val > 10 && val < 50000000) nums.push(val);
+            }
+          }
+
+          if (nums.length >= 1) {
+            lines.push([item, nums[0], nums[1] || nums[0]]);
+          }
+        }
       }
     }
 
@@ -183,22 +222,28 @@ export async function extractRawGrid(file: File): Promise<RawFileContent> {
     };
   }
 
-  // Excel / CSV / TSV
+  // Excel (.xlsx, .xls) / CSV / TSV
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array', raw: false });
   const sheets = workbook.SheetNames.map((name) => {
     const sheet = workbook.Sheets[name];
-    const rows: (string | number)[][] = sheet
-      ? XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
-      : [];
-    return { sheetName: name, rows };
+    const rawRows: any[][] = sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) : [];
+    
+    // Filter out rows where the first column is a personal mobile number, address or noise
+    const cleanRows = rawRows.filter((row) => {
+      if (!row || row.length === 0) return false;
+      const cell0 = String(row[0] || '').trim();
+      return !isMetadataOrNoise(cell0);
+    });
+
+    return { sheetName: name, rows: cleanRows };
   });
 
   return { fileName: file.name, sheets };
 }
 
 /**
- * Automatically attempt to extract holdings from raw grid
+ * Intelligent Extraction from Raw Grid
  */
 export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
   const holdings: ParsedHolding[] = [];
@@ -207,7 +252,7 @@ export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
     const matrix = sheet.rows;
     if (!matrix || matrix.length === 0) continue;
 
-    // 1. Scan for header
+    // 1. Locate genuine header
     let headerIdx = -1;
     let nameCol = -1;
     let invCol = -1;
@@ -220,7 +265,7 @@ export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
     for (let r = 0; r < Math.min(matrix.length, 35); r++) {
       const row = matrix[r].map((c) => String(c || '').trim().toLowerCase());
       const nIdx = row.findIndex((c) =>
-        /scheme|instrument|symbol|stock|holding|particular|security|company|scrip|fund|name/i.test(c)
+        /scheme|instrument|symbol|stock|holding|particular|security|company|scrip|fund.*name|asset/i.test(c)
       );
       if (nIdx !== -1) {
         headerIdx = r;
@@ -228,11 +273,11 @@ export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
         row.forEach((colName, cIdx) => {
           if (/invested|cost.*val|purchase.*val|inv.*val|total.*cost|buy.*val|principal/i.test(colName) && invCol === -1) {
             invCol = cIdx;
-          } else if (/current|market.*val|cur.*val|present.*val|latest.*val|val.*today|valuation|amount/i.test(colName) && curCol === -1) {
+          } else if (/current|market.*val|cur.*val|present.*val|latest.*val|val.*today|valuation/i.test(colName) && curCol === -1) {
             curCol = cIdx;
           } else if (/qty|quantity|units|shares|volume|balance/i.test(colName) && qtyCol === -1) {
             qtyCol = cIdx;
-          } else if (/buy.*price|avg.*cost|avg.*price|buy.*avg|cost.*price|purchase.*price/i.test(colName) && buyPriceCol === -1) {
+          } else if (/buy.*price|avg.*cost|avg.*price|buy.*avg|cost.*price/i.test(colName) && buyPriceCol === -1) {
             buyPriceCol = cIdx;
           } else if (/ltp|cmp|current.*price|market.*price|nav|closing/i.test(colName) && curPriceCol === -1) {
             curPriceCol = cIdx;
@@ -244,14 +289,13 @@ export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
       }
     }
 
-    // If header found, extract rows
     if (headerIdx !== -1 && nameCol !== -1) {
       for (let r = headerIdx + 1; r < matrix.length; r++) {
         const row = matrix[r];
         if (!row || row.length === 0) continue;
 
         const rawName = String(row[nameCol] || '').trim();
-        if (!rawName || isNoiseRow(rawName)) continue;
+        if (!rawName || isMetadataOrNoise(rawName)) continue;
 
         let units = qtyCol !== -1 ? parseCleanNumber(row[qtyCol]) : undefined;
         let buyPrice = buyPriceCol !== -1 ? parseCleanNumber(row[buyPriceCol]) : undefined;
@@ -266,6 +310,9 @@ export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
         if (invested === 0 && current > 0 && pnl !== undefined) invested = current - pnl;
         if (invested === 0 && current > 0) invested = current;
         if (current === 0 && invested > 0) current = invested;
+
+        // Sanity filter: Ignore values over ₹100 Crores if likely a phone number
+        if (invested > 500000000 || current > 500000000) continue;
 
         if (invested > 0 || current > 0) {
           holdings.push({
@@ -282,13 +329,13 @@ export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
         }
       }
     } else {
-      // Positional Scan fallback
+      // Positional Scan with strict filter
       for (let r = 0; r < matrix.length; r++) {
         const row = matrix[r];
         if (!row || row.length < 2) continue;
 
-        const stringCell = row.find((c: any) => typeof c === 'string' && c.trim().length > 3 && !isNoiseRow(c));
-        const numCells = row.map(parseCleanNumber).filter((n: number) => n > 5);
+        const stringCell = row.find((c: any) => typeof c === 'string' && c.trim().length > 4 && !isMetadataOrNoise(c));
+        const numCells = row.map(parseCleanNumber).filter((n: number) => n > 10 && n < 500000000);
 
         if (stringCell && numCells.length >= 1) {
           const invested = numCells[0];
@@ -318,7 +365,7 @@ export function autoExtractHoldings(raw: RawFileContent): ParsedHolding[] {
 }
 
 /**
- * Parse from raw text pasted from clipboard (CSV, TSV, or table format)
+ * Parse pasted table or CSV text
  */
 export function parsePastedText(text: string): ParsedHolding[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -332,7 +379,7 @@ export function parsePastedText(text: string): ParsedHolding[] {
   });
 
   const raw: RawFileContent = {
-    fileName: 'Pasted Data',
+    fileName: 'Pasted Table',
     sheets: [{ sheetName: 'Pasted', rows }],
   };
 
