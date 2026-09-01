@@ -24,15 +24,15 @@ interface InvestmentModalProps {
   currencySymbol?: string;
 }
 
-const ASSET_TYPES: { label: string; value: AssetType; color: string; desc: string }[] = [
-  { label: 'Mutual Funds', value: 'mutual_fund', color: '#00F0FF', desc: 'SIPs, Index Funds, ELSS, Flexi Cap' },
-  { label: 'Stocks & Equity', value: 'stocks', color: '#FFE600', desc: 'Direct Shares, ETFs' },
-  { label: 'Fixed Deposits & RDs', value: 'fd_rd', color: '#05DF72', desc: 'Bank FDs, Corporate FDs, RDs' },
-  { label: 'Gold & Silver', value: 'gold', color: '#FFD700', desc: 'Digital Gold, Sovereign Gold Bonds, Silver' },
-  { label: 'Crypto & Web3', value: 'crypto', color: '#9B51E0', desc: 'Bitcoin, Ethereum, Tokens' },
-  { label: 'PPF & EPF', value: 'ppf_epf', color: '#FF8800', desc: 'Provident Fund, NPS, Retirement' },
-  { label: 'Real Estate & Land', value: 'real_estate', color: '#FF4D8D', desc: 'Plots, Commercial, Residential' },
-  { label: 'Other Assets', value: 'other', color: '#A0AEC0', desc: 'Bonds, P2P, Angel, Art' },
+const ASSET_TYPES: { label: string; value: AssetType; colorVar: string; desc: string }[] = [
+  { label: 'Mutual Funds', value: 'mutual_fund', colorVar: 'var(--neo-cyan)', desc: 'SIPs, Index Funds, ELSS, Flexi Cap' },
+  { label: 'Stocks & Equity', value: 'stocks', colorVar: 'var(--neo-yellow)', desc: 'Direct Shares, ETFs' },
+  { label: 'Fixed Deposits & RDs', value: 'fd_rd', colorVar: 'var(--neo-green)', desc: 'Bank FDs, Corporate FDs, RDs' },
+  { label: 'Gold & Silver', value: 'gold', colorVar: 'var(--neo-yellow)', desc: 'Digital Gold, Sovereign Gold Bonds, Silver' },
+  { label: 'Crypto & Web3', value: 'crypto', colorVar: 'var(--neo-purple)', desc: 'Bitcoin, Ethereum, Tokens' },
+  { label: 'PPF & EPF', value: 'ppf_epf', colorVar: 'var(--neo-yellow)', desc: 'Provident Fund, NPS, Retirement' },
+  { label: 'Real Estate & Land', value: 'real_estate', colorVar: 'var(--neo-pink)', desc: 'Plots, Commercial, Residential' },
+  { label: 'Other Assets', value: 'other', colorVar: 'var(--neo-border)', desc: 'Bonds, P2P, Angel, Art' },
 ];
 
 export const InvestmentModal: React.FC<InvestmentModalProps> = ({
@@ -148,7 +148,7 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
 
         {/* Asset Classification Selector */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-black uppercase tracking-wider text-[#121212] flex items-center gap-1">
+          <label className="text-xs font-black uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--neo-border)' }}>
             <Layers size={13} />
             Asset Class *
           </label>
@@ -158,11 +158,12 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
                 key={type.value}
                 type="button"
                 onClick={() => setAssetType(type.value)}
-                className={`p-2 text-[11px] font-black uppercase border-2 transition-all cursor-pointer text-center truncate ${
+                className="p-2 text-[11px] font-black uppercase border-2 transition-all cursor-pointer text-center truncate"
+                style={
                   assetType === type.value
-                    ? 'bg-[#121212] text-[#FFE600] border-[#121212] shadow-neo-sm'
-                    : 'bg-white text-neutral-700 border-neutral-300 hover:border-[#121212]'
-                }`}
+                    ? { background: 'var(--neo-border)', color: 'var(--neo-yellow)', borderColor: 'var(--neo-border)', boxShadow: '3px 3px 0 var(--neo-border)' }
+                    : { background: 'white', color: '#555', borderColor: '#ccc' }
+                }
               >
                 {type.label}
               </button>
@@ -174,7 +175,7 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Invested Capital */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-black uppercase tracking-wider text-[#121212] flex items-center gap-1">
+            <label className="text-xs font-black uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--neo-border)' }}>
               <DollarSign size={13} />
               Invested Capital ({currencySymbol}) *
             </label>
@@ -194,7 +195,8 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
                   }
                 }}
                 placeholder="25000.00"
-                className="neo-input pl-8 pr-3 py-2 text-base font-mono font-black text-[#121212]"
+                className="neo-input pl-8 pr-3 py-2 text-base font-mono font-black"
+                style={{ color: 'var(--neo-border)' }}
                 required
               />
             </div>
@@ -202,8 +204,8 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
 
           {/* Current Valuation */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-black uppercase tracking-wider text-[#121212] flex items-center gap-1">
-              <TrendingUp size={13} className="text-[#05DF72]" />
+            <label className="text-xs font-black uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--neo-border)' }}>
+              <TrendingUp size={13} style={{ color: 'var(--neo-green)' }} />
               Current Value ({currencySymbol}) *
             </label>
             <div className="relative flex items-center">
@@ -217,7 +219,8 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
                 value={currentValue}
                 onChange={(e) => setCurrentValue(e.target.value)}
                 placeholder="28500.00"
-                className="neo-input pl-8 pr-3 py-2 text-base font-mono font-black text-[#05DF72]"
+                className="neo-input pl-8 pr-3 py-2 text-base font-mono font-black"
+                style={{ color: 'var(--neo-green)' }}
                 required
               />
             </div>
@@ -258,9 +261,9 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
         </div>
 
         {/* Recurring SIP Section */}
-        <div className="p-3 bg-[#FFFDF5] border-2 border-[#121212] shadow-neo-sm flex flex-col gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-black uppercase text-[#121212]">
-            <Calendar size={14} className="text-[#00F0FF]" />
+        <div className="p-3 border-2 shadow-neo-sm flex flex-col gap-2" style={{ background: 'var(--neo-bg)', borderColor: 'var(--neo-border)' }}>
+          <div className="flex items-center gap-1.5 text-xs font-black uppercase" style={{ color: 'var(--neo-border)' }}>
+            <Calendar size={14} style={{ color: 'var(--neo-cyan)' }} />
             <span>Monthly Recurring SIP (Optional)</span>
           </div>
 
@@ -312,7 +315,7 @@ export const InvestmentModal: React.FC<InvestmentModalProps> = ({
         </div>
 
         {error && (
-          <div className="bg-[#FF4343] text-white text-xs font-bold p-2.5 border-2 border-[#121212] shadow-neo-sm">
+          <div className="text-white text-xs font-bold p-2.5 border-2 shadow-neo-sm" style={{ background: 'var(--neo-red)', borderColor: 'var(--neo-border)' }}>
             {error}
           </div>
         )}
