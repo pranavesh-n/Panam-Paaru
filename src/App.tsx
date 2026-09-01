@@ -11,6 +11,9 @@ import {
   UserProfile,
   TransactionType,
   RecurrenceType,
+  Investment,
+  AssetType,
+  PortfolioSummary,
 } from './types';
 
 // Contexts
@@ -26,11 +29,13 @@ import { PinLockScreen } from './components/pin/PinLockScreen';
 import { PinSetupModal } from './components/pin/PinSetupModal';
 import { TransactionFormModal } from './components/transactions/TransactionFormModal';
 import { BudgetModal } from './components/budgets/BudgetModal';
+import { InvestmentModal } from './components/investments/InvestmentModal';
 
 // Pages
 import { OverviewPage } from './pages/OverviewPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { BudgetsPage } from './pages/BudgetsPage';
+import { InvestmentsPage } from './pages/InvestmentsPage';
 import { InsightsPage } from './pages/InsightsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -60,6 +65,8 @@ export function AppContent() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [isInvestmentModalOpen, setIsInvestmentModalOpen] = useState(false);
+  const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [isPinSetupModalOpen, setIsPinSetupModalOpen] = useState(false);
 
   // Live Cloud Subscriptions
@@ -69,6 +76,8 @@ export function AppContent() {
   const cloudBudgets = useQuery(api.budgets.listWithProgress);
   const cloudCategories = useQuery(api.transactions.getCategories);
   const cloudAnalytics = useQuery(api.insights.getSpendingAnalytics);
+  const cloudInvestments = useQuery(api.investments.list, {});
+  const cloudPortfolioSummary = useQuery(api.investments.getPortfolioSummary);
 
   // Cloud Mutations
   const addTransactionMutation = useMutation(api.transactions.add);
@@ -77,6 +86,11 @@ export function AppContent() {
   const createBudgetMutation = useMutation(api.budgets.create);
   const updateBudgetMutation = useMutation(api.budgets.update);
   const removeBudgetMutation = useMutation(api.budgets.remove);
+  const topUpBudgetMutation = useMutation(api.budgets.topUp);
+  const addInvestmentMutation = useMutation(api.investments.add);
+  const updateInvestmentMutation = useMutation(api.investments.update);
+  const quickUpdateInvestmentMutation = useMutation(api.investments.quickUpdateValue);
+  const removeInvestmentMutation = useMutation(api.investments.remove);
   const updateSettingsMutation = useMutation(api.users.updateSettings);
   const initializeUserDataMutation = useMutation(api.users.initializeUserData);
 
@@ -87,12 +101,11 @@ export function AppContent() {
     }
   }, [isAuthenticated, initializeUserDataMutation]);
 
-  // Global Keyboard Shortcuts (N = New Transaction, B = New Budget, L = Lock)
+  // Global Keyboard Shortcuts (N = New Transaction, B = New Budget, I = Investment, L = Lock)
   useEffect(() => {
     if (!isAuthenticated || isLocked) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is currently typing in an input/textarea/select
       const activeTag = (document.activeElement?.tagName || '').toLowerCase();
       if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
         return;
@@ -106,6 +119,10 @@ export function AppContent() {
         e.preventDefault();
         setEditingBudget(null);
         setIsBudgetModalOpen(true);
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        setEditingInvestment(null);
+        setIsInvestmentModalOpen(true);
       } else if (e.key === 'l' || e.key === 'L') {
         if (isPinEnabled) {
           e.preventDefault();
@@ -121,6 +138,8 @@ export function AppContent() {
   // Clean, live user data only
   const transactions: Transaction[] = cloudTransactions ?? [];
   const budgets: Budget[] = cloudBudgets ?? [];
+  const investments: Investment[] = cloudInvestments ?? [];
+  const portfolioSummary: PortfolioSummary | null = cloudPortfolioSummary ?? null;
   const categories: Category[] = cloudCategories && cloudCategories.length > 0 ? cloudCategories : DEFAULT_CATEGORIES;
   const user: UserProfile | null = cloudUser ?? null;
 
@@ -146,7 +165,7 @@ export function AppContent() {
     totalIncomeThisMonth: 0,
   };
 
-  // Transaction Handlers with Zero-Latency Optimistic Response
+  // Transaction Handlers
   const handleSaveTransaction = async (data: {
     title: string;
     amount: number;
@@ -175,10 +194,13 @@ export function AppContent() {
   const handleSaveBudget = async (data: {
     name: string;
     amount: number;
+    initialLoadedAmount?: number;
     category: string;
     recurrence: RecurrenceType;
     startDate: string;
     alertThreshold?: number;
+    lowBalanceThresholdAmount?: number;
+    lowBalanceThresholdPercent?: number;
   }) => {
     if (navigator.vibrate) navigator.vibrate(20);
 
@@ -193,8 +215,53 @@ export function AppContent() {
     }
   };
 
+  const handleTopUpBudget = async (id: string, topUpAmount: number) => {
+    if (navigator.vibrate) navigator.vibrate(20);
+    await topUpBudgetMutation({
+      id: id as any,
+      topUpAmount,
+    });
+  };
+
   const handleDeleteBudget = async (id: string) => {
     await removeBudgetMutation({ id: id as any });
+  };
+
+  // Investment Handlers
+  const handleSaveInvestment = async (data: {
+    name: string;
+    assetType: AssetType;
+    investedAmount: number;
+    currentValue: number;
+    units?: number;
+    buyPrice?: number;
+    currentPrice?: number;
+    sipAmount?: number;
+    sipDay?: number;
+    notes?: string;
+  }) => {
+    if (navigator.vibrate) navigator.vibrate(20);
+
+    if (editingInvestment) {
+      await updateInvestmentMutation({
+        id: editingInvestment._id as any,
+        ...data,
+      });
+    } else {
+      await addInvestmentMutation(data);
+    }
+  };
+
+  const handleQuickUpdateInvestmentValue = async (id: string, currentValue: number) => {
+    if (navigator.vibrate) navigator.vibrate(15);
+    await quickUpdateInvestmentMutation({
+      id: id as any,
+      currentValue,
+    });
+  };
+
+  const handleDeleteInvestment = async (id: string) => {
+    await removeInvestmentMutation({ id: id as any });
   };
 
   const handleUpdateCurrency = async (curr: string, symbol: string) => {
@@ -293,6 +360,25 @@ export function AppContent() {
                 setIsBudgetModalOpen(true);
               }}
               onDelete={handleDeleteBudget}
+              onTopUp={handleTopUpBudget}
+              currencySymbol={currencySymbol}
+            />
+          )}
+
+          {activeTab === 'investments' && (
+            <InvestmentsPage
+              investments={investments}
+              portfolioSummary={portfolioSummary}
+              onOpenAddModal={(defaultType) => {
+                setEditingInvestment(null);
+                setIsInvestmentModalOpen(true);
+              }}
+              onEdit={(inv) => {
+                setEditingInvestment(inv);
+                setIsInvestmentModalOpen(true);
+              }}
+              onDelete={handleDeleteInvestment}
+              onQuickUpdateValue={handleQuickUpdateInvestmentValue}
               currencySymbol={currencySymbol}
             />
           )}
@@ -349,6 +435,18 @@ export function AppContent() {
         onSubmit={handleSaveBudget}
         initialData={editingBudget}
         categories={categories}
+        currencySymbol={currencySymbol}
+      />
+
+      {/* Investment Modal */}
+      <InvestmentModal
+        isOpen={isInvestmentModalOpen}
+        onClose={() => {
+          setIsInvestmentModalOpen(false);
+          setEditingInvestment(null);
+        }}
+        onSubmit={handleSaveInvestment}
+        initialData={editingInvestment}
         currencySymbol={currencySymbol}
       />
 

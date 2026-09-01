@@ -20,10 +20,15 @@ export interface Budget {
   userId?: string;
   name: string;
   amount: number;
+  initialLoadedAmount?: number;
+  currentLoadedAmount?: number;
+  effectiveTotalPool?: number;
   category: string;
   recurrence: RecurrenceType;
   startDate: string;
   alertThreshold?: number;
+  lowBalanceThresholdAmount?: number;
+  lowBalanceThresholdPercent?: number;
   isActive: boolean;
   activePeriod?: {
     startDate: string;
@@ -34,9 +39,58 @@ export interface Budget {
   spentAmount?: number;
   remainingAmount?: number;
   progressPercent?: number;
+  remainingPercent?: number;
   isOverBudget?: boolean;
   isWarning?: boolean;
+  isLowAmount?: boolean;
+  isLowPercent?: boolean;
   transactionCount?: number;
+}
+
+export type AssetType =
+  | 'mutual_fund'
+  | 'stocks'
+  | 'fd_rd'
+  | 'gold'
+  | 'crypto'
+  | 'ppf_epf'
+  | 'real_estate'
+  | 'other';
+
+export interface Investment {
+  _id: string;
+  userId?: string;
+  name: string;
+  assetType: AssetType;
+  investedAmount: number;
+  currentValue: number;
+  units?: number;
+  buyPrice?: number;
+  currentPrice?: number;
+  sipAmount?: number;
+  sipDay?: number;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+  returnsAmount?: number;
+  returnsPercent?: number;
+  isPositive?: boolean;
+}
+
+export interface PortfolioSummary {
+  totalInvested: number;
+  totalCurrentValue: number;
+  totalReturnsAmount: number;
+  totalReturnsPercent: number;
+  totalMonthlySip: number;
+  totalHoldingsCount: number;
+  assetBreakdown: {
+    assetType: string;
+    investedAmount: number;
+    currentValue: number;
+    itemCount: number;
+    allocationPercent: number;
+  }[];
 }
 
 export interface Category {

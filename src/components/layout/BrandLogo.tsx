@@ -13,9 +13,9 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   className,
 }) => {
   const iconSizes = {
-    sm: 'w-7 h-7',
-    md: 'w-9 h-9',
-    lg: 'w-12 h-12',
+    sm: 'w-7 h-7 text-xs',
+    md: 'w-9 h-9 text-sm',
+    lg: 'w-12 h-12 text-base',
   };
 
   const titleSizes = {
@@ -26,29 +26,31 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
   return (
     <div className={twMerge('flex items-center gap-2.5 select-none cursor-pointer group', className)}>
-      {/* Neo-Brutalist Geometric PP Badge */}
+      {/* High-Impact Neo-Brutalist Monogram Badge */}
       <div
         className={twMerge(
-          'relative bg-[#FFE600] border-[2.5px] border-[#121212] shadow-neo-sm flex items-center justify-center p-1 font-black shrink-0 transition-transform group-hover:scale-105',
+          'relative bg-[#FFE600] border-[2.5px] border-[#121212] shadow-neo-sm flex items-center justify-center font-black font-mono shrink-0 transition-transform group-hover:scale-105 group-hover:shadow-neo',
           iconSizes[size]
         )}
       >
-        <svg viewBox="0 0 100 100" className="w-full h-full fill-current text-[#121212]">
-          {/* First P */}
-          <path d="M 18 15 H 52 C 68 15 72 25 72 40 C 72 55 68 65 52 65 H 32 V 88 H 18 Z" />
-          <path d="M 32 30 H 48 C 55 30 58 35 58 40 C 58 45 55 50 48 50 H 32 Z" fill="#FFE600" />
-          {/* Second overlapping accent P in Green */}
-          <rect x="42" y="44" width="44" height="12" fill="#05DF72" stroke="#121212" strokeWidth="4" />
-          <line x1="12" y1="50" x2="60" y2="50" stroke="#FFE600" strokeWidth="6" />
-        </svg>
+        <span className="text-[#121212] font-black tracking-tighter">
+          ப
+        </span>
+        <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-[#05DF72] border border-[#121212]" />
       </div>
 
+      {/* Brand Title Lockup */}
       <div className="flex flex-col">
-        <span className={twMerge('font-black uppercase tracking-tight leading-none text-[#121212]', titleSizes[size])}>
-          PANAM <span className="bg-[#FFE600] px-1.5 py-0.5 border-2 border-[#121212] shadow-neo-sm">PAARU</span>
-        </span>
+        <div className="flex items-center gap-1.5 leading-none">
+          <span className={twMerge('font-black uppercase tracking-tight text-[#121212]', titleSizes[size])}>
+            PANAM
+          </span>
+          <span className={twMerge('font-black uppercase tracking-tight text-[#121212] bg-[#FFE600] px-1 py-0.5 border border-[#121212] leading-none', titleSizes[size])}>
+            PAARU
+          </span>
+        </div>
         {showSubtitle && (
-          <span className="text-[10px] font-mono font-bold tracking-wider text-neutral-600 uppercase mt-0.5">
+          <span className="text-[10px] font-mono font-bold tracking-wider text-neutral-600 uppercase mt-1">
             பணம் பாரு · See Your Money
           </span>
         )}

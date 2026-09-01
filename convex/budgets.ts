@@ -37,21 +37,39 @@ export const listWithProgress = query({
         return tx.date >= activePeriod.startDate && tx.date <= activePeriod.endDate;
       });
 
+      const effectiveTotalPool = (budget.currentLoadedAmount ?? budget.initialLoadedAmount) ?? budget.amount;
       const spentAmount = matchingTxs.reduce((sum, tx) => sum + tx.amount, 0);
-      const remainingAmount = Math.max(0, budget.amount - spentAmount);
-      const progressPercent = budget.amount > 0 ? Math.round((spentAmount / budget.amount) * 100) : 0;
-      const isOverBudget = spentAmount > budget.amount;
-      const threshold = budget.alertThreshold ?? 80;
-      const isWarning = progressPercent >= threshold && !isOverBudget;
+      const remainingAmount = Math.max(0, effectiveTotalPool - spentAmount);
+      const progressPercent = effectiveTotalPool > 0 ? Math.min(100, Math.round((spentAmount / effectiveTotalPool) * 100)) : 0;
+      const remainingPercent = 100 - progressPercent;
+      const isOverBudget = spentAmount > effectiveTotalPool;
+
+      // Low balance warning triggers (Dual Thresholds: Percent OR Amount)
+      const isLowAmount =
+        budget.lowBalanceThresholdAmount !== undefined &&
+        budget.lowBalanceThresholdAmount > 0 &&
+        remainingAmount <= budget.lowBalanceThresholdAmount;
+
+      const isLowPercent =
+        budget.lowBalanceThresholdPercent !== undefined &&
+        budget.lowBalanceThresholdPercent > 0 &&
+        remainingPercent <= budget.lowBalanceThresholdPercent;
+
+      const defaultWarning = progressPercent >= (budget.alertThreshold ?? 80);
+      const isWarning = (isLowAmount || isLowPercent || defaultWarning) && !isOverBudget;
 
       return {
         ...budget,
+        effectiveTotalPool,
         activePeriod,
         spentAmount,
         remainingAmount,
         progressPercent,
+        remainingPercent,
         isOverBudget,
         isWarning,
+        isLowAmount,
+        isLowPercent,
         transactionCount: matchingTxs.length,
       };
     });
@@ -62,6 +80,7 @@ export const create = mutation({
   args: {
     name: v.string(),
     amount: v.number(),
+    initialLoadedAmount: v.optional(v.number()),
     category: v.string(),
     recurrence: v.union(
       v.literal("daily"),
@@ -72,23 +91,31 @@ export const create = mutation({
     ),
     startDate: v.string(),
     alertThreshold: v.optional(v.number()),
+    lowBalanceThresholdAmount: v.optional(v.number()),
+    lowBalanceThresholdPercent: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
 
-    if (args.amount <= 0) {
-      throw new Error("Budget amount must be greater than 0");
+    if (args.amount <= 0 && (!args.initialLoadedAmount || args.initialLoadedAmount <= 0)) {
+      throw new Error("Budget limit or loaded amount must be greater than 0");
     }
+
+    const initialLoaded = args.initialLoadedAmount ?? args.amount;
 
     return await ctx.db.insert("budgets", {
       userId,
       name: args.name.trim(),
       amount: args.amount,
+      initialLoadedAmount: initialLoaded,
+      currentLoadedAmount: initialLoaded,
       category: args.category,
       recurrence: args.recurrence,
       startDate: args.startDate,
       alertThreshold: args.alertThreshold ?? 80,
+      lowBalanceThresholdAmount: args.lowBalanceThresholdAmount,
+      lowBalanceThresholdPercent: args.lowBalanceThresholdPercent,
       isActive: true,
       createdAt: Date.now(),
     });
@@ -100,6 +127,7 @@ export const update = mutation({
     id: v.id("budgets"),
     name: v.string(),
     amount: v.number(),
+    initialLoadedAmount: v.optional(v.number()),
     category: v.string(),
     recurrence: v.union(
       v.literal("daily"),
@@ -110,6 +138,8 @@ export const update = mutation({
     ),
     startDate: v.string(),
     alertThreshold: v.optional(v.number()),
+    lowBalanceThresholdAmount: v.optional(v.number()),
+    lowBalanceThresholdPercent: v.optional(v.number()),
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -124,14 +154,46 @@ export const update = mutation({
     await ctx.db.patch(args.id, {
       name: args.name.trim(),
       amount: args.amount,
+      initialLoadedAmount: args.initialLoadedAmount ?? budget.initialLoadedAmount,
       category: args.category,
       recurrence: args.recurrence,
       startDate: args.startDate,
       alertThreshold: args.alertThreshold ?? 80,
+      lowBalanceThresholdAmount: args.lowBalanceThresholdAmount,
+      lowBalanceThresholdPercent: args.lowBalanceThresholdPercent,
       isActive: args.isActive,
     });
 
     return { success: true };
+  },
+});
+
+export const topUp = mutation({
+  args: {
+    id: v.id("budgets"),
+    topUpAmount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+
+    if (args.topUpAmount <= 0) {
+      throw new Error("Top-up amount must be greater than 0");
+    }
+
+    const budget = await ctx.db.get(args.id);
+    if (!budget || budget.userId !== userId) {
+      throw new Error("Budget not found or unauthorized");
+    }
+
+    const currentTotal = (budget.currentLoadedAmount ?? budget.initialLoadedAmount) ?? budget.amount;
+    const newTotal = currentTotal + args.topUpAmount;
+
+    await ctx.db.patch(args.id, {
+      currentLoadedAmount: newTotal,
+    });
+
+    return { success: true, newLoadedAmount: newTotal };
   },
 });
 

@@ -13,6 +13,7 @@ import type * as budgets from "../budgets.js";
 import type * as engine_recurrence from "../engine/recurrence.js";
 import type * as http from "../http.js";
 import type * as insights from "../insights.js";
+import type * as investments from "../investments.js";
 import type * as pin from "../pin.js";
 import type * as transactions from "../transactions.js";
 import type * as users from "../users.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   "engine/recurrence": typeof engine_recurrence;
   http: typeof http;
   insights: typeof insights;
+  investments: typeof investments;
   pin: typeof pin;
   transactions: typeof transactions;
   users: typeof users;

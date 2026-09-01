@@ -22,11 +22,13 @@ export default defineSchema({
     .index("by_user_type", ["userId", "type"])
     .index("by_user_category", ["userId", "category"]),
 
-  // Calendar-Aware Recurring Budgets
+  // Calendar-Aware & Reloadable Recurring Budgets / Pockets
   budgets: defineTable({
     userId: v.id("users"),
     name: v.string(),
-    amount: v.number(), // Budget limit
+    amount: v.number(), // Target spending limit or allocated pool
+    initialLoadedAmount: v.optional(v.number()), // Initial loaded capital
+    currentLoadedAmount: v.optional(v.number()), // Total loaded funds after top-ups
     category: v.string(),
     recurrence: v.union(
       v.literal("daily"),
@@ -36,12 +38,42 @@ export default defineSchema({
       v.literal("yearly")
     ),
     startDate: v.string(), // Anchor ISO date string (e.g. 2026-01-31)
-    alertThreshold: v.optional(v.number()), // percentage warning e.g. 80
+    alertThreshold: v.optional(v.number()), // percentage warning threshold e.g. 80%
+    lowBalanceThresholdAmount: v.optional(v.number()), // alert when balance remaining is below ₹X
+    lowBalanceThresholdPercent: v.optional(v.number()), // alert when remaining balance is below X%
     isActive: v.boolean(),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_user_category", ["userId", "category"]),
+
+  // Investment Portfolio Assets
+  investments: defineTable({
+    userId: v.id("users"),
+    name: v.string(), // e.g. "Parag Parikh Flexi Cap", "Nifty 50 ETF", "HDFC Fixed Deposit"
+    assetType: v.union(
+      v.literal("mutual_fund"),
+      v.literal("stocks"),
+      v.literal("fd_rd"),
+      v.literal("gold"),
+      v.literal("crypto"),
+      v.literal("ppf_epf"),
+      v.literal("real_estate"),
+      v.literal("other")
+    ),
+    investedAmount: v.number(), // Total invested capital
+    currentValue: v.number(), // Current valuation
+    units: v.optional(v.number()), // Quantity / units / shares / grams
+    buyPrice: v.optional(v.number()), // Purchase price per unit
+    currentPrice: v.optional(v.number()), // Current market price per unit
+    sipAmount: v.optional(v.number()), // Monthly SIP amount if active
+    sipDay: v.optional(v.number()), // Day of month for SIP (1-28)
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_asset_type", ["userId", "assetType"]),
 
   // Custom and Default Categories
   categories: defineTable({
@@ -61,7 +93,7 @@ export default defineSchema({
     pinEnabled: v.boolean(),
     pinHash: v.string(), // SHA-256 / PBKDF2 hash of 6-digit PIN with salt
     pinSalt: v.string(),
-    autoLockTimeoutMs: v.number(), // e.g. 0 (immediate), 60000 (1 min), 300000 (5 mins), -1 (never)
+    autoLockTimeoutMs: v.number(),
     failedAttempts: v.number(),
     lastFailedAttemptAt: v.optional(v.number()),
     updatedAt: v.number(),
