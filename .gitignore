@@ -44,3 +44,8 @@ lerna-debug.log*
 .agents/
 .system_generated/
 scratch/
+
+# Test build outputs
+parser-tests/parser.bundle.mjs
+parser-tests/pdf.worker.mjs
+

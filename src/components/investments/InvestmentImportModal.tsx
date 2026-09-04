@@ -10,6 +10,7 @@ import {
   detectAssetType,
   ParsedHolding,
   RawFileContent,
+  PasswordRequiredError,
 } from '../../utils/investmentParser';
 import { AssetType } from '../../types';
 import {
@@ -24,6 +25,10 @@ import {
   Clipboard,
   Plus,
   SlidersHorizontal,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -71,6 +76,13 @@ export const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [showColumnMapper, setShowColumnMapper] = useState(false);
 
+  // Password Protection State
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pdfPassword, setPdfPassword] = useState('');
+  const [isPasswordPrompt, setIsPasswordPrompt] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
   // Column Mapper State
   const [selectedSheetIdx, setSelectedSheetIdx] = useState(0);
   const [headerRowIdx, setHeaderRowIdx] = useState(0);
@@ -88,6 +100,11 @@ export const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
     setIsParsing(false);
     setIsImporting(false);
     setShowColumnMapper(false);
+    setPendingFile(null);
+    setPdfPassword('');
+    setIsPasswordPrompt(false);
+    setPasswordError('');
+    setShowPassword(false);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +114,8 @@ export const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
     try {
       setIsParsing(true);
       setError('');
+      setIsPasswordPrompt(false);
+      setPasswordError('');
 
       const result = await parseInvestmentFile(file);
       setRawGrid(result.rawGrid);
@@ -116,7 +135,59 @@ export const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
       setIsParsing(false);
     } catch (err: any) {
       setIsParsing(false);
-      setError(err?.message || 'Failed to read file. Please try pasting the text/table directly.');
+      if (
+        err?.isPasswordRequired ||
+        err instanceof PasswordRequiredError ||
+        String(err?.message || '').toLowerCase().includes('password')
+      ) {
+        setPendingFile(file);
+        setIsPasswordPrompt(true);
+        setPasswordError(err?.isIncorrectPassword ? 'Incorrect password. Try PAN in uppercase or DOB.' : '');
+      } else {
+        setError(err?.message || 'Failed to read file. Please try pasting the text/table directly.');
+      }
+    }
+  };
+
+  const handleUnlockPdf = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!pendingFile || !pdfPassword.trim()) return;
+
+    try {
+      setIsParsing(true);
+      setPasswordError('');
+      const result = await parseInvestmentFile(pendingFile, pdfPassword.trim());
+      setRawGrid(result.rawGrid);
+
+      if (result.holdings.length > 0) {
+        setParsedHoldings(result.holdings);
+        setIsPasswordPrompt(false);
+        setShowColumnMapper(false);
+      } else {
+        setShowColumnMapper(true);
+        setIsPasswordPrompt(false);
+        if (result.rawGrid.sheets[0]?.rows?.[0]) {
+          setNameColIdx(0);
+          setInvestedColIdx(Math.min(1, result.rawGrid.sheets[0].rows[0].length - 1));
+          setCurrentColIdx(Math.min(2, result.rawGrid.sheets[0].rows[0].length - 1));
+        }
+      }
+      setIsParsing(false);
+    } catch (err: any) {
+      setIsParsing(false);
+      if (
+        err?.isPasswordRequired ||
+        err instanceof PasswordRequiredError ||
+        String(err?.message || '').toLowerCase().includes('password')
+      ) {
+        setPasswordError(
+          err?.isIncorrectPassword
+            ? 'Incorrect password. (CAS statements usually use PAN in uppercase or DOB DDMMYYYY).'
+            : 'Password required to unlock this PDF.'
+        );
+      } else {
+        setPasswordError(err?.message || 'Failed to decrypt and parse PDF.');
+      }
     }
   };
 
@@ -279,7 +350,7 @@ export const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
       <div className="flex flex-col gap-4">
         
         {/* Step 1: Upload or Paste Selector */}
-        {parsedHoldings.length === 0 && !showColumnMapper && (
+        {parsedHoldings.length === 0 && !showColumnMapper && !isPasswordPrompt && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2 border-b-2 border-[#121212] pb-2">
               <button
@@ -366,6 +437,79 @@ export const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
               </div>
             )}
           </div>
+        )}
+
+        {/* Step 1.5: Password Unlock Form for Encrypted PDFs */}
+        {isPasswordPrompt && pendingFile && (
+          <form onSubmit={handleUnlockPdf} className="flex flex-col gap-3 p-5 bg-[#FFFDF5] border-2 border-[#121212] shadow-neo">
+            <div className="flex items-center gap-2.5 pb-2 border-b-2 border-[#121212]">
+              <div className="w-9 h-9 bg-[#FFE600] border-2 border-[#121212] flex items-center justify-center font-black shrink-0">
+                <Lock size={18} />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase text-[#121212]">
+                  Password Protected PDF: {pendingFile.name}
+                </h4>
+                <p className="text-[11px] font-semibold text-neutral-600">
+                  CAMS and KFintech CAS PDFs are encrypted with your PAN or Date of Birth.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black uppercase text-neutral-700">
+                Enter Statement Password
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoFocus
+                  value={pdfPassword}
+                  onChange={(e) => setPdfPassword(e.target.value)}
+                  placeholder="e.g. ABCDE1234F or 01011990"
+                  className="w-full p-2 pr-10 border-2 border-[#121212] font-mono text-xs font-bold bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 text-neutral-500 hover:text-black cursor-pointer"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <span className="text-[10px] text-neutral-500 font-semibold">
+                Tip: Most statements use your PAN in UPPERCASE (e.g. ABCDE1234F). Some use Date of Birth (DDMMYYYY).
+              </span>
+            </div>
+
+            {passwordError && (
+              <div className="p-2 bg-[#FF4343] text-white text-xs font-bold border-2 border-[#121212] flex items-center gap-2">
+                <AlertCircle size={15} />
+                <span>{passwordError}</span>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <NeoButton
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => resetState()}
+              >
+                Choose Another File
+              </NeoButton>
+              <NeoButton
+                type="submit"
+                variant="secondary"
+                size="sm"
+                disabled={isParsing || !pdfPassword.trim()}
+                className="flex items-center gap-1.5"
+              >
+                <KeyRound size={14} />
+                <span>{isParsing ? 'Decrypting...' : 'Unlock & Import Statement'}</span>
+              </NeoButton>
+            </div>
+          </form>
         )}
 
         {/* Step 2: Interactive Column Mapper (If auto-detector needs manual confirmation) */}

@@ -1,18 +1,47 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --neo-border: #121212;
-    --neo-bg: #FFFDF5;
-    --neo-yellow: #FFE600;
-    --neo-green: #05DF72;
-    --neo-emerald: #2EE59D;
-    --neo-red: #FF4343;
-    --neo-purple: #9B51E0;
-    --neo-blue: #0066FF;
-    --neo-cyan: #00F0FF;
-    --neo-pink: #FF4D8D;
-  }
+@theme {
+  --color-neo-bg: #FFFDF5;
+  --color-neo-dark: #121212;
+  --color-neo-yellow: #FFE600;
+  --color-neo-green: #2EE59D;
+  --color-neo-emerald: #05DF72;
+  --color-neo-red: #FF4343;
+  --color-neo-purple: #9B51E0;
+  --color-neo-blue: #0066FF;
+  --color-neo-cyan: #00F0FF;
+  --color-neo-pink: #FF4D8D;
+  --color-neo-orange: #FF8800;
+  --color-neo-muted: #EAE5D9;
+  --color-neo-border: #121212;
+  --color-neo-card: #FFFFFF;
+
+  --shadow-neo: 4px 4px 0px 0px #121212;
+  --shadow-neo-sm: 2px 2px 0px 0px #121212;
+  --shadow-neo-lg: 6px 6px 0px 0px #121212;
+  --shadow-neo-xl: 8px 8px 0px 0px #121212;
+  --shadow-neo-hover: 2px 2px 0px 0px #121212;
+  --shadow-neo-yellow: 4px 4px 0px 0px #FFE600;
+  --shadow-neo-green: 4px 4px 0px 0px #2EE59D;
+  --shadow-neo-red: 4px 4px 0px 0px #FF4343;
+
+  --font-sans: "Space Grotesk", "Cabinet Grotesk", Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
+:root {
+  --neo-border: #121212;
+  --neo-bg: #FFFDF5;
+  --neo-yellow: #FFE600;
+  --neo-green: #05DF72;
+  --neo-emerald: #2EE59D;
+  --neo-red: #FF4343;
+  --neo-purple: #9B51E0;
+  --neo-blue: #0066FF;
+  --neo-cyan: #00F0FF;
+  --neo-pink: #FF4D8D;
+}
 
   body {
     background-color: #FFFDF5;
@@ -38,7 +67,6 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #121212;
   }
-}
 
 /* Neo-Brutalist Global Utilities */
 .shadow-neo {
